@@ -9,24 +9,6 @@ Start a new project or work with an existing code base.
 Llmcode works best with Claude 3.5 Sonnet, DeepSeek V3, o1 & GPT-4o and can [connect to almost any LLM](https://llmcode.khulnasoft.com/docs/llms.html).
 
 
-<!-- SCREENCAST START -->
-<p align="center">
-  <img
-    src="https://llmcode.khulnasoft.com/assets/screencast.svg"
-    alt="llmcode screencast"
-  >
-</p>
-<!-- SCREENCAST END -->
-
-<!-- VIDEO START
-<p align="center">
-  <video style="max-width: 100%; height: auto;" autoplay loop muted playsinline>
-    <source src="/assets/shell-cmds-small.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
-</p>
-VIDEO END -->
-
 <p align="center">
   <a href="https://discord.gg/Tv2uQnR88V">
     <img src="https://img.shields.io/badge/Join-Discord-blue.svg"/>
