@@ -89,6 +89,6 @@ projects like django, scikitlearn, matplotlib, etc.
 - [Configuration](https://llmcode.khulnasoft.com/docs/config.html)
 - [Troubleshooting](https://llmcode.khulnasoft.com/docs/troubleshooting.html)
 - [LLM Leaderboards](https://llmcode.khulnasoft.com/docs/leaderboards/)
-- [GitHub](https://github.com/KhulnaSoft/llmcode)
+- [GitHub](https://github.com/khulnasoft/llmcode)
 - [Discord](https://discord.gg/Tv2uQnR88V)
 - [Blog](https://llmcode.khulnasoft.com/blog/)
