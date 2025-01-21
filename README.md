@@ -8,16 +8,6 @@ to edit code in your local git repository.
 Start a new project or work with an existing code base.
 Llmcode works best with Claude 3.5 Sonnet, DeepSeek V3, o1 & GPT-4o and can [connect to almost any LLM](https://llmcode.khulnasoft.com/docs/llms.html).
 
-
-<p align="center">
-  <a href="https://discord.gg/Tv2uQnR88V">
-    <img src="https://img.shields.io/badge/Join-Discord-blue.svg"/>
-  </a>
-  <a href="https://llmcode.khulnasoft.com/docs/install.html">
-    <img src="https://img.shields.io/badge/Read-Docs-green.svg"/>
-  </a>
-</p>
-
 ## Getting started
 <!--[[[cog
 # We can't "include" here.
