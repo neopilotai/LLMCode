@@ -1,6 +1,6 @@
 
 [project]
-name = "llmcode-chat"
+name = "llmcode"
 description = "Llmcode is AI pair programming in your terminal"
 readme = "README.md"
 classifiers = [
@@ -20,7 +20,7 @@ requires-python = ">=3.9,<3.13"
 dynamic = ["dependencies", "optional-dependencies", "version"]
 
 [project.urls]
-Homepage = "https://github.com/khulnasoft/llmcode"
+Homepage = "https://github.com/KhulnaSoft/llmcode"
 
 [project.scripts]
 llmcode = "llmcode.main:main"

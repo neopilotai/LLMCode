@@ -1,1 +1,1 @@
-Llmcode works best with Claude 3.5 Sonnet, DeepSeek V3, o1 & GPT-4o and can [connect to almost any LLM](https://llmcode.khulnasoft.com/docs/llms.html).
+Llmcode works best with Claude 3.5 Sonnet, DeepSeek R1 & Chat V3, OpenAI o1, o3-mini & GPT-4o. Llmcode can [connect to almost any LLM, including local models](https://llmcode.khulnasoft.com/docs/llms.html).

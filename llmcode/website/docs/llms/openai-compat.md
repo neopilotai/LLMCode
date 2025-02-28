@@ -8,7 +8,8 @@ nav_order: 500
 Llmcode can connect to any LLM which is accessible via an OpenAI compatible API endpoint.
 
 ```
-python -m pip install -U llmcode-chat
+python -m pip install llmcode-install
+llmcode-install
 
 # Mac/Linux:
 export OPENAI_API_BASE=<endpoint>

@@ -13,7 +13,7 @@ You'll need a [Cohere API key](https://dashboard.cohere.com/welcome/login).
 To use **Command-R+**:
 
 ```
-python -m pip install -U llmcode-chat
+python -m pip install -U llmcode
 
 export COHERE_API_KEY=<key> # Mac/Linux
 setx   COHERE_API_KEY <key> # Windows, restart shell after setx

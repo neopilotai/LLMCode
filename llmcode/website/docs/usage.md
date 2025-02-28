@@ -68,11 +68,11 @@ relevant context from the rest of your repo.
 {% include works-best.md %}
 
 ```
-# GPT-4o
-$ llmcode --4o
+# o3-mini
+$ llmcode --model o3-mini --api-key openai=<key>
 
 # Claude 3.5 Sonnet
-$ llmcode --sonnet
+$ llmcode --model sonnet --api-key anthropic=<key>
 ```
 
 Or you can run `llmcode --model XXX` to launch llmcode with

@@ -53,7 +53,7 @@ Or in `//` comment languages...
 Llmcode will take note of all the comments that start or end with `AI`.
 Comments that include `AI!` with an exclamation point or `AI?` with a question
 mark are special.
-They triggers llmcode to take action to collect *all* the AI comments and use them
+They trigger llmcode to take action to collect *all* the AI comments and use them
 as your instructions.
 
 - `AI!` triggers llmcode to make changes to your code.

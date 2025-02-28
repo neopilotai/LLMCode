@@ -33,7 +33,7 @@ then it should be possible to add repo map support.
 To build a repo map, llmcode needs the `tags.scm` file
 from the given language's tree-sitter grammar.
 If you can find and share that file in a 
-[GitHub issue](https://github.com/khulnasoft/llmcode/issues),
+[GitHub issue](https://github.com/KhulnaSoft/llmcode/issues),
 then it may be possible to add repo map support.
 
 If llmcode doesn't support linting, it will be complicated to
@@ -73,7 +73,8 @@ cog.out(get_supported_languages_md())
 | gomod                | .gomod               |          |   ✓    |
 | hack                 | .hack                |          |   ✓    |
 | haskell              | .hs                  |          |   ✓    |
-| hcl                  | .hcl                 |          |   ✓    |
+| hcl                  | .hcl                 |    ✓     |   ✓    |
+| hcl                  | .tf                  |    ✓     |   ✓    |
 | html                 | .html                |          |   ✓    |
 | java                 | .java                |    ✓     |   ✓    |
 | javascript           | .js                  |    ✓     |   ✓    |

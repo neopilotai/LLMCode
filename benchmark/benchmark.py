@@ -218,6 +218,9 @@ def main(
     num_ctx: Optional[int] = typer.Option(
         None, "--num-ctx", help="Override model context window size"
     ),
+    read_model_settings: str = typer.Option(
+        None, "--read-model-settings", help="Load llmcode model settings from YAML file"
+    ),
     exercises_dir: str = typer.Option(
         EXERCISES_DIR_DEFAULT, "--exercises-dir", help="Directory with exercise files"
     ),
@@ -329,6 +332,24 @@ def main(
 
     test_dnames = sorted(str(d.relative_to(original_dname)) for d in exercise_dirs)
 
+    resource_metadata = importlib_resources.files("llmcode.resources").joinpath(
+        "model-metadata.json"
+    )
+    model_metadata_files_loaded = models.register_litellm_models([resource_metadata])
+    dump(model_metadata_files_loaded)
+
+    if read_model_settings:
+        try:
+            files_loaded = models.register_models([read_model_settings])
+            if verbose:
+                if files_loaded:
+                    print(f"Loaded model settings from: {files_loaded[0]}")
+                else:
+                    print(f"No model settings loaded from: {read_model_settings}")
+        except Exception as e:
+            print(f"Error loading model settings: {e}")
+            return 1
+
     if keywords:
         keywords = keywords.split(",")
         test_dnames = [dn for dn in test_dnames for keyword in keywords if keyword in dn]
@@ -341,6 +362,7 @@ def main(
     LONG_TIMEOUT = 24 * 60 * 60
     sendchat.RETRY_TIMEOUT = LONG_TIMEOUT
     base_coder.RETRY_TIMEOUT = LONG_TIMEOUT
+    models.RETRY_TIMEOUT = LONG_TIMEOUT
 
     if threads == 1:
         all_results = []
@@ -661,6 +683,7 @@ def run_test_real(
     editor_edit_format,
     num_ctx=None,
     sleep=0,
+    read_model_settings=None,
 ):
     if not os.path.isdir(testdir):
         print("Not a dir:", testdir)
@@ -755,12 +778,6 @@ def run_test_real(
         yes=True,
         chat_history_file=history_fname,
     )
-
-    resource_metadata = importlib_resources.files("llmcode.resources").joinpath(
-        "model-metadata.json"
-    )
-    model_metadata_files_loaded = models.register_litellm_models([resource_metadata])
-    dump(model_metadata_files_loaded)
 
     # weak_model_name = model_name
     weak_model_name = None
@@ -968,9 +985,10 @@ def run_unit_tests(original_dname, testdir, history_fname, test_files):
 
     # Copy test files from original directory
     for file_path in test_files:
-        src = original_dname / testdir.name / file_path
+        src = original_dname / Path(*testdir.parts[-4:]) / file_path
         dst = testdir / file_path
         if src.exists():
+            print("copying", src, dst)
             os.makedirs(dst.parent, exist_ok=True)
             shutil.copy(src, dst)
 
@@ -992,6 +1010,8 @@ def run_unit_tests(original_dname, testdir, history_fname, test_files):
         text=True,
         timeout=timeout,
         cwd=testdir,
+        encoding="utf-8",
+        errors="replace",
     )
 
     success = result.returncode == 0

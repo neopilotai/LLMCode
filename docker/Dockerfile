@@ -20,21 +20,27 @@ ENV PLAYWRIGHT_SKIP_BROWSER_GC=1
 
 # Create directories with proper permissions
 RUN mkdir -p /home/appuser/.llmcode /home/appuser/.cache /home/appuser/pw-browsers && \
-    chown -R appuser:appuser /home/appuser /app /venv
+    chown -R appuser:appuser /home/appuser /app /venv && \
+    chmod -R 777 /home/appuser/.llmcode /home/appuser/.cache /home/appuser/pw-browsers
 
 # So git doesn't complain about unusual permissions
 RUN git config --system --add safe.directory /app
 
+# This puts the container's ~/.llmcode into the host's project directory (usually host's cwd).
+# That way caches, version checks, etc get stored in the host filesystem not
+# simply discarded every time the container exits.
+ENV HOME=/app
+
 #########################
 FROM base AS llmcode-full
 
-ENV LLMCODE_DOCKER_IMAGE=paulgauthier/llmcode-full
+ENV LLMCODE_DOCKER_IMAGE=khulnasoft/llmcode-full
 
 COPY . /tmp/llmcode
 
 # Install dependencies as root
 RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip && \
-    /venv/bin/python -m pip install --no-cache-dir /tmp/llmcode[help,browser,playwright] \
+    /venv/bin/python -m pip install --no-cache-dir /tmp/llmcode[help,browser,playwright] boto3 \
        --extra-index-url https://download.pytorch.org/whl/cpu && \
     rm -rf /tmp/llmcode
 
@@ -52,13 +58,13 @@ ENTRYPOINT ["/venv/bin/llmcode"]
 #########################
 FROM base AS llmcode
 
-ENV LLMCODE_DOCKER_IMAGE=paulgauthier/llmcode
+ENV LLMCODE_DOCKER_IMAGE=khulnasoft/llmcode
 
 COPY . /tmp/llmcode
 
 # Install dependencies as root
 RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip && \
-    /venv/bin/python -m pip install --no-cache-dir /tmp/llmcode[playwright] \
+    /venv/bin/python -m pip install --no-cache-dir /tmp/llmcode[playwright] boto3 \
        --extra-index-url https://download.pytorch.org/whl/cpu && \
     rm -rf /tmp/llmcode
 

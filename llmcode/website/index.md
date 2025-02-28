@@ -33,8 +33,7 @@ cog.out(text)
 Llmcode lets you pair program with LLMs,
 to edit code in your local git repository.
 Start a new project or work with an existing code base.
-Llmcode works best with Claude 3.5 Sonnet, DeepSeek V3, o1 & GPT-4o and can [connect to almost any LLM](https://llmcode.khulnasoft.com/docs/llms.html).
-
+Llmcode works best with Claude 3.5 Sonnet, DeepSeek R1 & Chat V3, OpenAI o1, o3-mini & GPT-4o. Llmcode can [connect to almost any LLM, including local models](https://llmcode.khulnasoft.com/docs/llms.html).
 
 <!-- 
 <p align="center">
@@ -79,11 +78,20 @@ llmcode-install
 # Change directory into your code base
 cd /to/your/project
 
-# Work with Claude 3.5 Sonnet on your code
-llmcode --model sonnet --anthropic-api-key your-key-goes-here
+# Work with DeepSeek via DeepSeek's API
+llmcode --model deepseek --api-key deepseek=your-key-goes-here
 
-# Work with GPT-4o on your code
-llmcode --model gpt-4o --openai-api-key your-key-goes-here
+# Work with Claude 3.5 Sonnet via Anthropic's API
+llmcode --model sonnet --api-key anthropic=your-key-goes-here
+
+# Work with GPT-4o via OpenAI's API
+llmcode --model gpt-4o --api-key openai=your-key-goes-here
+
+# Work with Sonnet via OpenRouter's API
+llmcode --model openrouter/anthropic/claude-3.5-sonnet --api-key openrouter=your-key-goes-here
+
+# Work with DeepSeek via OpenRouter's API
+llmcode --model openrouter/deepseek/deepseek-chat --api-key openrouter=your-key-goes-here
 ```
 <!-- NOOP -->
 
@@ -99,7 +107,7 @@ for more details.
 - Ask for changes:
   - Add new features or test cases.
   - Describe a bug.
-  - Paste in an error message or or GitHub issue URL.
+  - Paste in an error message or GitHub issue URL.
   - Refactor code.
   - Update docs.
 - Llmcode will edit your files to complete your request.
@@ -134,7 +142,7 @@ projects like django, scikitlearn, matplotlib, etc.
 - [Configuration](https://llmcode.khulnasoft.com/docs/config.html)
 - [Troubleshooting](https://llmcode.khulnasoft.com/docs/troubleshooting.html)
 - [LLM Leaderboards](https://llmcode.khulnasoft.com/docs/leaderboards/)
-- [GitHub](https://github.com/khulnasoft/llmcode)
+- [GitHub](https://github.com/KhulnaSoft/llmcode)
 - [Discord](https://discord.gg/Tv2uQnR88V)
 - [Blog](https://llmcode.khulnasoft.com/blog/)
 
@@ -145,14 +153,14 @@ projects like django, scikitlearn, matplotlib, etc.
 - *The best AI coding assistant so far.* -- [Matthew Berman](https://www.youtube.com/watch?v=df8afeb1FY8)
 - *Llmcode ... has easily quadrupled my coding productivity.* -- [SOLAR_FIELDS](https://news.ycombinator.com/item?id=36212100)
 - *It's a cool workflow... Llmcode's ergonomics are perfect for me.* -- [qup](https://news.ycombinator.com/item?id=38185326)
-- *It's really like having your senior developer live right in your Git repo - truly amazing!* -- [rappster](https://github.com/khulnasoft/llmcode/issues/124)
-- *What an amazing tool. It's incredible.* -- [valyagolev](https://github.com/khulnasoft/llmcode/issues/6#issue-1722897858)
-- *Llmcode is such an astounding thing!* -- [cgrothaus](https://github.com/khulnasoft/llmcode/issues/82#issuecomment-1631876700)
+- *It's really like having your senior developer live right in your Git repo - truly amazing!* -- [rappster](https://github.com/KhulnaSoft/llmcode/issues/124)
+- *What an amazing tool. It's incredible.* -- [valyagolev](https://github.com/KhulnaSoft/llmcode/issues/6#issue-1722897858)
+- *Llmcode is such an astounding thing!* -- [cgrothaus](https://github.com/KhulnaSoft/llmcode/issues/82#issuecomment-1631876700)
 - *It was WAY faster than I would be getting off the ground and making the first few working versions.* -- [Daniel Feldman](https://twitter.com/d_feldman/status/1662295077387923456)
 - *THANK YOU for Llmcode! It really feels like a glimpse into the future of coding.* -- [derwiki](https://news.ycombinator.com/item?id=38205643)
 - *It's just amazing.  It is freeing me to do things I felt were out my comfort zone before.* -- [Dougie](https://discord.com/channels/1131200896827654144/1174002618058678323/1174084556257775656)
-- *This project is stellar.* -- [funkytaco](https://github.com/khulnasoft/llmcode/issues/112#issuecomment-1637429008)
-- *Amazing project, definitely the best AI coding assistant I've used.* -- [joshuavial](https://github.com/khulnasoft/llmcode/issues/84)
+- *This project is stellar.* -- [funkytaco](https://github.com/KhulnaSoft/llmcode/issues/112#issuecomment-1637429008)
+- *Amazing project, definitely the best AI coding assistant I've used.* -- [joshuavial](https://github.com/KhulnaSoft/llmcode/issues/84)
 - *I absolutely love using Llmcode ... It makes software development feel so much lighter as an experience.* -- [principalideal0](https://discord.com/channels/1131200896827654144/1133421607499595858/1229689636012691468)
 - *I have been recovering from multiple shoulder surgeries ... and have used llmcode extensively. It has allowed me to continue productivity.* -- [codeninja](https://www.reddit.com/r/OpenAI/s/nmNwkHy1zG)
 - *I am an llmcode addict. I'm getting so much more work done, but in less time.* -- [dandandan](https://discord.com/channels/1131200896827654144/1131200896827654149/1135913253483069470)

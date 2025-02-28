@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from llmcode.dump import dump  # noqa: F401
+
 
 @dataclass
 class ExInfo:
@@ -58,6 +60,7 @@ EXCEPTIONS = [
 
 class LiteLLMExceptions:
     exceptions = dict()
+    exception_info = {exi.name: exi for exi in EXCEPTIONS}
 
     def __init__(self):
         self._load()
@@ -66,20 +69,13 @@ class LiteLLMExceptions:
         import litellm
 
         for var in dir(litellm):
-            if not var.endswith("Error"):
-                continue
+            if var.endswith("Error"):
+                if var not in self.exception_info:
+                    raise ValueError(f"{var} is in litellm but not in llmcode's exceptions list")
 
-            ex_info = None
-            for exi in EXCEPTIONS:
-                if var == exi.name:
-                    ex_info = exi
-                    break
-
-            if strict and not ex_info:
-                raise ValueError(f"{var} is in litellm but not in llmcode's exceptions list")
-
+        for var in self.exception_info:
             ex = getattr(litellm, var)
-            self.exceptions[ex] = ex_info
+            self.exceptions[ex] = self.exception_info[var]
 
     def exceptions_tuple(self):
         return tuple(self.exceptions)

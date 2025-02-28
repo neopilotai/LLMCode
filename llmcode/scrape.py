@@ -32,7 +32,7 @@ def install_playwright(io):
     if has_pip and has_chromium:
         return True
 
-    pip_cmd = utils.get_pip_install(["llmcode-chat[playwright]"])
+    pip_cmd = utils.get_pip_install(["llmcode[playwright]"])
     chromium_cmd = "-m playwright install --with-deps chromium"
     chromium_cmd = [sys.executable] + chromium_cmd.split()
 

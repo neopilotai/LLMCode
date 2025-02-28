@@ -14,3 +14,9 @@ repos:
     hooks:
       - id: flake8
         args: ["--show-source"]
+  - repo: https://github.com/khulnasoft/codetypo
+    rev: v2.3.0
+    hooks:
+      - id: codetypo
+        additional_dependencies:
+          - tomli

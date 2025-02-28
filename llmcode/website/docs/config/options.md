@@ -30,7 +30,8 @@ usage: llmcode [-h] [--model] [--opus] [--sonnet] [--haiku] [--4]
              [--openai-api-deployment-id] [--openai-organization-id]
              [--set-env] [--api-key] [--list-models]
              [--model-settings-file] [--model-metadata-file]
-             [--alias] [--verify-ssl | --no-verify-ssl] [--timeout]
+             [--alias] [--reasoning-effort]
+             [--verify-ssl | --no-verify-ssl] [--timeout]
              [--edit-format] [--architect] [--weak-model]
              [--editor-model] [--editor-edit-format]
              [--show-model-warnings | --no-show-model-warnings]
@@ -78,6 +79,7 @@ usage: llmcode [-h] [--model] [--opus] [--sonnet] [--haiku] [--4]
              [--fancy-input | --no-fancy-input]
              [--multiline | --no-multiline]
              [--detect-urls | --no-detect-urls] [--editor]
+             [--install-tree-sitter-language-pack]
 
 ```
 
@@ -100,7 +102,7 @@ Use claude-3-opus-20240229 model for the main chat
 Environment variable: `LLMCODE_OPUS`  
 
 ### `--sonnet`
-Use claude-3-5-sonnet-20241022 model for the main chat  
+Use anthropic/claude-3-7-sonnet-20250219 model for the main chat  
 Environment variable: `LLMCODE_SONNET`  
 
 ### `--haiku`
@@ -209,6 +211,10 @@ Environment variable: `LLMCODE_MODEL_METADATA_FILE`
 ### `--alias ALIAS:MODEL`
 Add a model alias (can be used multiple times)  
 Environment variable: `LLMCODE_ALIAS`  
+
+### `--reasoning-effort VALUE`
+Set the reasoning_effort API parameter (default: not set)  
+Environment variable: `LLMCODE_REASONING_EFFORT`  
 
 ### `--verify-ssl`
 Verify the SSL cert when connecting to models (default: True)  
@@ -756,4 +762,9 @@ Aliases:
 ### `--editor VALUE`
 Specify which editor to use for the /editor command  
 Environment variable: `LLMCODE_EDITOR`  
+
+### `--install-tree-sitter-language-pack`
+Install the tree_sitter_language_pack (experimental)  
+Default: False  
+Environment variable: `LLMCODE_INSTALL_TREE_SITTER_LANGUAGE_PACK`  
 <!--[[[end]]]-->

@@ -24,9 +24,9 @@ sync_repo() {
     rsync -avz --delete \
           --exclude-from="$EXCLUDE_FILE" \
           "$REPO_ROOT/" \
-          "$DEST:~/llmcode/" || true
+          "$DEST:~/llmcode/" || sleep 0.1
     
-    rsync -a .env .gitignore "$DEST:~/llmcode/." || true
+    rsync -av .env .gitignore .llmcode.model.settings.yml "$DEST:~/llmcode/." || sleep 0.1
 
     echo Done syncing, waiting.
 }

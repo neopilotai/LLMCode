@@ -12,8 +12,8 @@ _site
 .jekyll-metadata
 llmcode/__version__.py
 llmcode/_version.py
-venv/
 .venv/
 .#*
 .gitattributes
 tmp.benchmarks/
+venv/

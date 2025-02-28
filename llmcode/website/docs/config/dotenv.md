@@ -26,7 +26,7 @@ If the files above exist, they will be loaded in that order. Files loaded last w
 
 Below is a sample `.env` file, which you
 can also
-[download from GitHub](https://github.com/khulnasoft/llmcode/blob/main/llmcode/website/assets/sample.env).
+[download from GitHub](https://github.com/KhulnaSoft/llmcode/blob/main/llmcode/website/assets/sample.env).
 
 <!--[[[cog
 from llmcode.args import get_sample_dotenv
@@ -67,7 +67,7 @@ cog.outl("```")
 ## Use claude-3-opus-20240229 model for the main chat
 #LLMCODE_OPUS=
 
-## Use claude-3-5-sonnet-20241022 model for the main chat
+## Use anthropic/claude-3-7-sonnet-20250219 model for the main chat
 #LLMCODE_SONNET=
 
 ## Use claude-3-5-haiku-20241022 model for the main chat
@@ -141,6 +141,9 @@ cog.outl("```")
 
 ## Add a model alias (can be used multiple times)
 #LLMCODE_ALIAS=
+
+## Set the reasoning_effort API parameter (default: not set)
+#LLMCODE_REASONING_EFFORT=
 
 ## Verify the SSL cert when connecting to models (default: True)
 #LLMCODE_VERIFY_SSL=true
@@ -441,5 +444,8 @@ cog.outl("```")
 
 ## Specify which editor to use for the /editor command
 #LLMCODE_EDITOR=
+
+## Install the tree_sitter_language_pack (experimental)
+#LLMCODE_INSTALL_TREE_SITTER_LANGUAGE_PACK=false
 ```
 <!--[[[end]]]-->

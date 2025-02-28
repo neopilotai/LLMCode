@@ -13,7 +13,7 @@ Model aliases allow you to create shorthand names for models you frequently use.
 You can define aliases when launching llmcode using the `--alias` option:
 
 ```bash
-llmcode --alias "fast:gpt-3.5-turbo" --alias "smart:gpt-4"
+llmcode --alias "fast:gpt-4o-mini" --alias "smart:o3-mini"
 ```
 
 Multiple aliases can be defined by using the `--alias` option multiple times. Each alias definition should be in the format `alias:model-name`.
@@ -24,8 +24,8 @@ You can also define aliases in your [`.llmcode.conf.yml` file](https://llmcode.k
 
 ```yaml
 alias:
-  - "fast:gpt-3.5-turbo"
-  - "smart:gpt-4"
+  - "fast:gpt-4o-mini"
+  - "smart:o3-mini"
   - "hacker:claude-3-sonnet-20240229"
 ```
 
@@ -34,8 +34,8 @@ alias:
 Once defined, you can use the alias instead of the full model name:
 
 ```bash
-llmcode --model fast  # Uses gpt-3.5-turbo
-llmcode --model smart  # Uses gpt-4
+llmcode --model fast  # Uses gpt-4o-mini
+llmcode --model smart  # Uses o3-mini
 ```
 
 ## Built-in Aliases
@@ -60,7 +60,7 @@ for alias, model in sorted(MODEL_ALIASES.items()):
 - `haiku`: claude-3-5-haiku-20241022
 - `opus`: claude-3-opus-20240229
 - `r1`: deepseek/deepseek-reasoner
-- `sonnet`: claude-3-5-sonnet-20241022
+- `sonnet`: anthropic/claude-3-7-sonnet-20250219
 <!--[[[end]]]-->
 
 ## Priority

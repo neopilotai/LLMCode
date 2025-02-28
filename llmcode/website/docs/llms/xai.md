@@ -10,7 +10,7 @@ You'll need a [xAI API key](https://console.x.ai.).
 To use xAI:
 
 ```
-python -m pip install -U llmcode-chat
+python -m pip install -U llmcode
 
 export XAI_API_KEY=<key> # Mac/Linux
 setx   XAI_API_KEY <key> # Windows, restart shell after setx

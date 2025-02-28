@@ -2,6 +2,8 @@ import importlib
 import os
 import warnings
 
+from llmcode.dump import dump  # noqa: F401
+
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 
 LLMCODE_SITE_URL = "https://llmcode.khulnasoft.com"

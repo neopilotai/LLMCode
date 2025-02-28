@@ -228,7 +228,7 @@ release.
 People often ask which LLMs I use with llmcode, when writing llmcode.
 Below is a table showing the models I have used recently,
 extracted from the 
-[public log](https://github.com/khulnasoft/llmcode/blob/main/llmcode/website/assets/sample-analytics.jsonl)
+[public log](https://github.com/Aider-ai/llmcode/blob/main/llmcode/website/assets/sample-analytics.jsonl)
 of my
 [llmcode analytics](https://llmcode.khulnasoft.com/docs/more/analytics.html).
 
@@ -249,15 +249,16 @@ tr:hover { background-color: #f5f5f5; }
 </style>
 <table>
 <tr><th>Model Name</th><th class='right'>Total Tokens</th><th class='right'>Percent</th></tr>
-<tr><td>deepseek/deepseek-chat</td><td class='right'>1,105,738</td><td class='right'>58.1%</td></tr>
-<tr><td>claude-3-5-sonnet-20241022</td><td class='right'>699,676</td><td class='right'>36.8%</td></tr>
-<tr><td>deepseek/REDACTED</td><td class='right'>41,370</td><td class='right'>2.2%</td></tr>
-<tr><td>o1</td><td class='right'>25,121</td><td class='right'>1.3%</td></tr>
-<tr><td>claude-3-5-haiku-20241022</td><td class='right'>10,083</td><td class='right'>0.5%</td></tr>
-<tr><td>gemini/gemini-exp-1206</td><td class='right'>10,068</td><td class='right'>0.5%</td></tr>
-<tr><td>mistral/codestral-latest</td><td class='right'>8,137</td><td class='right'>0.4%</td></tr>
-<tr><td>gpt-4o</td><td class='right'>1,775</td><td class='right'>0.1%</td></tr>
-<tr><td>o1-preview</td><td class='right'>175</td><td class='right'>0.0%</td></tr>
+<tr><td>claude-3-5-sonnet-20241022</td><td class='right'>444,178</td><td class='right'>45.0%</td></tr>
+<tr><td>anthropic/claude-3-7-sonnet-20250219</td><td class='right'>258,397</td><td class='right'>26.2%</td></tr>
+<tr><td>fireworks_ai/accounts/fireworks/models/deepseek-v3</td><td class='right'>105,999</td><td class='right'>10.7%</td></tr>
+<tr><td>claude-3-5-haiku-20241022</td><td class='right'>69,203</td><td class='right'>7.0%</td></tr>
+<tr><td>o3-mini</td><td class='right'>52,192</td><td class='right'>5.3%</td></tr>
+<tr><td>openrouter/anthropic/claude-3.7-sonnet</td><td class='right'>20,213</td><td class='right'>2.0%</td></tr>
+<tr><td>gpt-4o</td><td class='right'>12,595</td><td class='right'>1.3%</td></tr>
+<tr><td>openrouter/REDACTED</td><td class='right'>12,083</td><td class='right'>1.2%</td></tr>
+<tr><td>openrouter/openai/o3-mini</td><td class='right'>10,107</td><td class='right'>1.0%</td></tr>
+<tr><td>anthropic/REDACTED</td><td class='right'>1,999</td><td class='right'>0.2%</td></tr>
 </table>
 
 {: .note :}
@@ -270,7 +271,7 @@ Llmcode's analytics only records the names of "well known" LLMs.
 [Llmcode is tightly integrated with git](/docs/git.html) so all
 of llmcode's code changes are committed to the repo with proper attribution.
 The 
-[stats are computed](https://github.com/khulnasoft/llmcode/blob/main/scripts/blame.py)
+[stats are computed](https://github.com/KhulnaSoft/llmcode/blob/main/scripts/blame.py)
 by doing something like `git blame` on the repo,
 and counting up who wrote all the new lines of code in each release.
 Only lines in source code files are counted, not documentation or prompt files.
@@ -347,9 +348,9 @@ Your edits and llmcode's edits might conflict.
 
 Llmcode AI LLC is the company behind the llmcode AI coding tool.
 Llmcode is 
-[open source and available on GitHub](https://github.com/khulnasoft/llmcode)
+[open source and available on GitHub](https://github.com/KhulnaSoft/llmcode)
 under an 
-[Apache 2.0 license](https://github.com/khulnasoft/llmcode/blob/main/LICENSE.txt).
+[Apache 2.0 license](https://github.com/KhulnaSoft/llmcode/blob/main/LICENSE.txt).
 
 
 <div style="height:80vh"></div>

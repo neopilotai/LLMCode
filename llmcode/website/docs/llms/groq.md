@@ -13,7 +13,7 @@ You'll need a [Groq API key](https://console.groq.com/keys).
 To use **Llama3 70B**:
 
 ```
-python -m pip install -U llmcode-chat
+python -m pip install -U llmcode
 
 export GROQ_API_KEY=<key> # Mac/Linux
 setx   GROQ_API_KEY <key> # Windows, restart shell after setx

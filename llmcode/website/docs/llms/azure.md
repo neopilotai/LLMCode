@@ -8,7 +8,7 @@ nav_order: 500
 Llmcode can connect to the OpenAI models on Azure.
 
 ```
-python -m pip install -U llmcode-chat
+python -m pip install -U llmcode
 
 # Mac/Linux:                                           
 export AZURE_API_KEY=<key>

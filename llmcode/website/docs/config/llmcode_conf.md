@@ -40,7 +40,7 @@ read: [CONVENTIONS.md, anotherfile.txt, thirdfile.py]
 
 Below is a sample of the YAML config file, which you
 can also
-[download from GitHub](https://github.com/khulnasoft/llmcode/blob/main/llmcode/website/assets/sample.llmcode.conf.yml).
+[download from GitHub](https://github.com/KhulnaSoft/llmcode/blob/main/llmcode/website/assets/sample.llmcode.conf.yml).
 
 <!--[[[cog
 from llmcode.args import get_sample_yaml
@@ -77,7 +77,7 @@ cog.outl("```")
 ## Use claude-3-opus-20240229 model for the main chat
 #opus: false
 
-## Use claude-3-5-sonnet-20241022 model for the main chat
+## Use anthropic/claude-3-7-sonnet-20250219 model for the main chat
 #sonnet: false
 
 ## Use claude-3-5-haiku-20241022 model for the main chat
@@ -166,6 +166,9 @@ cog.outl("```")
 #  - xxx
 #  - yyy
 #  - zzz
+
+## Set the reasoning_effort API parameter (default: not set)
+#reasoning-effort: xxx
 
 ## Verify the SSL cert when connecting to models (default: True)
 #verify-ssl: true
@@ -487,5 +490,8 @@ cog.outl("```")
 
 ## Specify which editor to use for the /editor command
 #editor: xxx
+
+## Install the tree_sitter_language_pack (experimental)
+#install-tree-sitter-language-pack: false
 ```
 <!--[[[end]]]-->

@@ -54,7 +54,7 @@ class EditBlockCoder(Coder):
 
             # If the edit failed, and
             # this is not a "create a new file" with an empty original...
-            # https://github.com/khulnasoft/llmcode/issues/2258
+            # https://github.com/KhulnaSoft/llmcode/issues/2258
             if not new_content and original.strip():
                 # try patching any of the other files in the chat
                 for full_path in self.abs_fnames:
@@ -401,6 +401,9 @@ missing_filename_err = (
     " {fence[0]}"
 )
 
+# Always be willing to treat triple-backticks as a fence when searching for filenames
+triple_backticks = "`" * 3
+
 
 def strip_filename(filename, fence):
     filename = filename.strip()
@@ -409,7 +412,7 @@ def strip_filename(filename, fence):
         return
 
     start_fence = fence[0]
-    if filename.startswith(start_fence):
+    if filename.startswith(start_fence) or filename.startswith(triple_backticks):
         return
 
     filename = filename.rstrip(":")
@@ -418,7 +421,7 @@ def strip_filename(filename, fence):
     filename = filename.strip("`")
     filename = filename.strip("*")
 
-    # https://github.com/khulnasoft/llmcode/issues/1158
+    # https://github.com/KhulnaSoft/llmcode/issues/1158
     # filename = filename.replace("\\_", "_")
 
     return filename
@@ -546,7 +549,7 @@ def find_filename(lines, fence, valid_fnames):
             filenames.append(filename)
 
         # Only continue as long as we keep seeing fences
-        if not line.startswith(fence[0]):
+        if not line.startswith(fence[0]) and not line.startswith(triple_backticks):
             break
 
     if not filenames:

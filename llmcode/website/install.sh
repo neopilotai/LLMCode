@@ -1177,8 +1177,8 @@ install() {
     say ""
     say "Installing llmcode..."
     say ""
-    # Install llmcode-chat using the newly installed uv
-    ensure "${_install_dir}/uv" tool install --force --python python3.12 llmcode-chat@latest
+    # Install llmcode using the newly installed uv
+    ensure "${_install_dir}/uv" tool install --force --python python3.12 llmcode@latest
     
     # Avoid modifying the users PATH if they are managing their PATH manually
     case :$PATH:

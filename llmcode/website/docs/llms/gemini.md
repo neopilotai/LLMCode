@@ -8,13 +8,13 @@ nav_order: 300
 You'll need a [Gemini API key](https://aistudio.google.com/app/u/2/apikey).
 
 ```
-python -m pip install -U llmcode-chat
+python -m pip install -U llmcode
 
 # You may need to install google-generativeai
 pip install -U google-generativeai
 
 # Or with pipx...
-pipx inject llmcode-chat google-generativeai
+pipx inject llmcode google-generativeai
 
 export GEMINI_API_KEY=<key> # Mac/Linux
 setx   GEMINI_API_KEY <key> # Windows, restart shell after setx

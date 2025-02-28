@@ -1,11 +1,82 @@
 # Release history
 
-### Llmcode v0.72.1
+### main branch
 
+- Added support for Claude 3.7 Sonnet models on OpenRouter, Bedrock and Vertex AI.
+- Llmcode wrote 47% of the code in this release.
+
+### Llmcode v0.75.1
+
+- Added support for `openrouter/anthropic/claude-3.7-sonnet`
+
+### Llmcode v0.75.0
+
+- Basic support for Claude 3.7 Sonnet
+  - Use `--model sonnet` to use the new 3.7
+  - Thinking support coming soon.
+- Bugfix to `/editor` command.
+- Llmcode wrote 46% of the code in this release.
+
+### Llmcode v0.74.3
+
+- Downgrade streamlit dependency to avoid threading bug.
+- Added support for tree-sitter language pack.
+- Added openrouter/o3-mini-high model configuration.
+- Added build.gradle.kts to special files for Kotlin project support, by Lucas Shadler.
+
+### Llmcode v0.74.2
+
+- Prevent more than one cache warming thread from becoming active.
+- Fixed continuation prompt ". " for multiline input.
+- Added HCL (Terraform) syntax support, by Warren Krewenki.
+
+### Llmcode v0.74.1
+
+- Have o1 & o3-mini generate markdown by sending the magic "Formatting re-enabled." string.
+- Bugfix for multi-line inputs, which should not include the ". " continuation prompt.
+
+### Llmcode v0.74.0
+
+- Dynamically changes the Ollama context window to hold the current chat.
+- Better support for o3-mini, DeepSeek V3 & R1, o1-mini, o1 especially via third-party API providers.
+- Remove `<think>` tags from R1 responses for commit messages (and other weak model uses).
+- Can now specify `use_temperature: <float>` in model settings, not just true/false.
+- The full docker container now includes `boto3` for Bedrock.
+- Docker containers now set `HOME=/app` which is the normal project mount-point, to persist `~/.llmcode`.
+- Bugfix to prevent creating incorrect filenames like `python`, `php`, etc.
+- Bugfix for `--timeout`
+- Bugfix so that `/model` now correctly reports that the weak model is not changed.
+- Bugfix so that multi-line mode persists through ^C at confirmation prompts.
+- Watch files now fully ignores top-level directories named in ignore files, to reduce the chance of hitting OS watch limits. Helpful to ignore giant subtrees like `node_modules`.
+- Fast startup with more providers and when model metadata provided in local files.
+- Improved .gitignore handling:
+  - Honor ignores already in effect regardless of how they've been configured.
+  - Check for .env only when the file exists.
+- Yes/No prompts now accept All/Skip as alias for Y/N even when not processing a group of confirmations.
+- Llmcode wrote 77% of the code in this release.
+
+### Llmcode v0.73.0
+
+- Full support for o3-mini: `llmcode --model o3-mini`
+- New `--reasoning-effort` argument: low, medium, high.
+- Improved handling of context window size limits, with better messaging and Ollama-specific guidance.
+- Added support for removing model-specific reasoning tags from responses with `remove_reasoning: tagname` model setting.
+- Auto-create parent directories when creating new files, by xqyz.
+- Support for R1 free on OpenRouter: `--model openrouter/deepseek/deepseek-r1:free`
+- Llmcode wrote 69% of the code in this release.
+
+### Llmcode v0.72.3
+
+- Enforce user/assistant turn order to avoid R1 errors, by miradnanali.
+- Case-insensitive model name matching while preserving original case.
+
+### Llmcode v0.72.2
+- Harden against user/assistant turn order problems which cause R1 errors.
+
+### Llmcode v0.72.1
 - Fix model metadata for `openrouter/deepseek/deepseek-r1`
 
 ### Llmcode v0.72.0
-
 - Support for DeepSeek R1.
   - Use shortcut: `--model r1`
   - Also via OpenRouter: `--model openrouter/deepseek/deepseek-r1`
@@ -303,7 +374,7 @@
 
 ### Llmcode v0.57.1
 
-- Fixed dependency conflict between llmcode-chat[help] and [playwright].
+- Fixed dependency conflict between llmcode[help] and [playwright].
 
 ### Llmcode v0.57.0
 
@@ -558,7 +629,7 @@
   - Bugfix to properly handle subprocess encodings (also for `/run`).
 - Improved [docker support](https://llmcode.khulnasoft.com/docs/install/docker.html):
   - Resolved permission issues when using `docker run --user xxx`.
-  - New `paulgauthier/llmcode-full` docker image, which includes all extras.
+  - New `khulnasoft/llmcode-full` docker image, which includes all extras.
 - Switching to code and ask mode no longer summarizes the chat history.
 - Added graph of llmcode's contribution to each release.
 - Generic auto-completions are provided for `/commands` without a completion override.
@@ -612,9 +683,9 @@
 
 - Default pip install size reduced by 3-12x.
 - Added 3 package extras, which llmcode will offer to install when needed:
-  - `llmcode-chat[help]`
-  - `llmcode-chat[browser]`
-  - `llmcode-chat[playwright]`
+  - `llmcode[help]`
+  - `llmcode[browser]`
+  - `llmcode[playwright]`
 - Improved regex for detecting URLs in user chat messages.
 - Bugfix to globbing logic when absolute paths are included in `/add`.
 - Simplified output of `--models`.
@@ -965,7 +1036,7 @@
 ### Llmcode v0.14.0
 
 - [Support for Claude2 and other LLMs via OpenRouter](https://llmcode.khulnasoft.com/docs/faq.html#accessing-other-llms-with-openrouter) by @joshuavial
-- Documentation for [running the llmcode benchmarking suite](https://github.com/khulnasoft/llmcode/tree/main/benchmark)
+- Documentation for [running the llmcode benchmarking suite](https://github.com/KhulnaSoft/llmcode/tree/main/benchmark)
 - Llmcode now requires Python >= 3.9
 
 

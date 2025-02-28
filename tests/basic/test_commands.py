@@ -153,7 +153,7 @@ class TestCommands(TestCase):
             mock_tool_error.assert_called_once_with("Failed to copy to clipboard: Clipboard error")
 
     def test_cmd_add_bad_glob(self):
-        # https://github.com/khulnasoft/llmcode/issues/293
+        # https://github.com/KhulnaSoft/llmcode/issues/293
 
         io = InputOutput(pretty=False, fancy_input=False, yes=False)
         from llmcode.coders import Coder
@@ -447,7 +447,7 @@ class TestCommands(TestCase):
                 pass
 
             # this was blowing up with GitCommandError, per:
-            # https://github.com/khulnasoft/llmcode/issues/201
+            # https://github.com/KhulnaSoft/llmcode/issues/201
             commands.cmd_add("temp.txt")
 
     def test_cmd_commit(self):
@@ -488,7 +488,7 @@ class TestCommands(TestCase):
             outside_file.touch()
 
             # This should not be allowed!
-            # https://github.com/khulnasoft/llmcode/issues/178
+            # https://github.com/KhulnaSoft/llmcode/issues/178
             commands.cmd_add("../outside.txt")
 
             self.assertEqual(len(coder.abs_fnames), 0)
@@ -512,7 +512,7 @@ class TestCommands(TestCase):
 
             # This should not be allowed!
             # It was blowing up with GitCommandError, per:
-            # https://github.com/khulnasoft/llmcode/issues/178
+            # https://github.com/KhulnaSoft/llmcode/issues/178
             commands.cmd_add("../outside.txt")
 
             self.assertEqual(len(coder.abs_fnames), 0)

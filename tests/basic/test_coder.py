@@ -7,11 +7,12 @@ from unittest.mock import MagicMock, patch
 import git
 
 from llmcode.coders import Coder
-from llmcode.coders.base_coder import UnknownEditFormat
+from llmcode.coders.base_coder import FinishReasonLength, UnknownEditFormat
 from llmcode.dump import dump  # noqa: F401
 from llmcode.io import InputOutput
 from llmcode.models import Model
 from llmcode.repo import GitRepo
+from llmcode.sendchat import sanity_check_messages
 from llmcode.utils import GitTemporaryDirectory
 
 
@@ -465,6 +466,10 @@ class TestCoder(unittest.TestCase):
 Do this:
 
 {str(fname)}
+<<<<<<< SEARCH
+=======
+new
+>>>>>>> REPLACE
 
 """
                 coder.partial_response_function_call = dict()
@@ -512,7 +517,11 @@ Do this:
 Do this:
 
 {str(fname2)}
+<<<<<<< SEARCH
 two
+=======
+TWO
+>>>>>>> REPLACE
 
 """
                 coder.partial_response_function_call = dict()
@@ -561,7 +570,11 @@ two
 Do this:
 
 {str(fname)}
+<<<<<<< SEARCH
 two
+=======
+three
+>>>>>>> REPLACE
 
 """
                 coder.partial_response_function_call = dict()
@@ -635,7 +648,11 @@ two
 Do this:
 
 {str(fname)}
+<<<<<<< SEARCH
 one
+=======
+two
+>>>>>>> REPLACE
 
 """
                 coder.partial_response_function_call = dict()
@@ -897,6 +914,25 @@ This command will print 'Hello, World!' to the console."""
         self.assertIsInstance(exc.valid_formats, list)
         self.assertTrue(len(exc.valid_formats) > 0)
 
+    def test_system_prompt_prefix(self):
+        # Test that system_prompt_prefix is properly set and used
+        io = InputOutput(yes=True)
+        test_prefix = "Test prefix. "
+
+        # Create a model with system_prompt_prefix
+        model = Model("gpt-3.5-turbo")
+        model.system_prompt_prefix = test_prefix
+
+        coder = Coder.create(model, None, io=io)
+
+        # Get the formatted messages
+        chunks = coder.format_messages()
+        messages = chunks.all_messages()
+
+        # Check if the system message contains our prefix
+        system_message = next(msg for msg in messages if msg["role"] == "system")
+        self.assertTrue(system_message["content"].startswith(test_prefix))
+
     def test_coder_create_with_new_file_oserror(self):
         with GitTemporaryDirectory():
             io = InputOutput(yes=True)
@@ -972,6 +1008,71 @@ This command will print 'Hello, World!' to the console."""
             self.assertIn("Input tokens:", error_message)
             self.assertIn("Output tokens:", error_message)
             self.assertIn("Total tokens:", error_message)
+
+    def test_keyboard_interrupt_handling(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(yes=True)
+            coder = Coder.create(self.GPT35, "diff", io=io)
+
+            # Simulate keyboard interrupt during message processing
+            def mock_send(*args, **kwargs):
+                coder.partial_response_content = "Partial response"
+                coder.partial_response_function_call = dict()
+                raise KeyboardInterrupt()
+
+            coder.send = mock_send
+
+            # Initial valid state
+            sanity_check_messages(coder.cur_messages)
+
+            # Process message that will trigger interrupt
+            list(coder.send_message("Test message"))
+
+            # Verify messages are still in valid state
+            sanity_check_messages(coder.cur_messages)
+            self.assertEqual(coder.cur_messages[-1]["role"], "assistant")
+
+    def test_token_limit_error_handling(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(yes=True)
+            coder = Coder.create(self.GPT35, "diff", io=io)
+
+            # Simulate token limit error
+            def mock_send(*args, **kwargs):
+                coder.partial_response_content = "Partial response"
+                coder.partial_response_function_call = dict()
+                raise FinishReasonLength()
+
+            coder.send = mock_send
+
+            # Initial valid state
+            sanity_check_messages(coder.cur_messages)
+
+            # Process message that hits token limit
+            list(coder.send_message("Long message"))
+
+            # Verify messages are still in valid state
+            sanity_check_messages(coder.cur_messages)
+            self.assertEqual(coder.cur_messages[-1]["role"], "assistant")
+
+    def test_message_sanity_after_partial_response(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(yes=True)
+            coder = Coder.create(self.GPT35, "diff", io=io)
+
+            # Simulate partial response then interrupt
+            def mock_send(*args, **kwargs):
+                coder.partial_response_content = "Partial response"
+                coder.partial_response_function_call = dict()
+                raise KeyboardInterrupt()
+
+            coder.send = mock_send
+
+            list(coder.send_message("Test"))
+
+            # Verify message structure remains valid
+            sanity_check_messages(coder.cur_messages)
+            self.assertEqual(coder.cur_messages[-1]["role"], "assistant")
 
 
 if __name__ == "__main__":

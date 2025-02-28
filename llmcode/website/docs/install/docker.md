@@ -7,8 +7,8 @@ nav_order: 100
 
 Llmcode is available as 2 docker images:
 
-- `paulgauthier/llmcode` installs the llmcode core, a smaller image that's good to get started quickly.
-- `paulgauthier/llmcode-full` installs llmcode will all the optional extras.
+- `khulnasoft/llmcode` installs the llmcode core, a smaller image that's good to get started quickly.
+- `khulnasoft/llmcode-full` installs llmcode will all the optional extras.
 
 The full image has support for features like interactive help, the
 browser GUI and support for using Playwright to scrape web pages.  The
@@ -20,15 +20,15 @@ launch the llmcode core container.
 ### Llmcode core 
 
 ```
-docker pull paulgauthier/llmcode
-docker run -it --user $(id -u):$(id -g) --volume $(pwd):/app paulgauthier/llmcode --openai-api-key $OPENAI_API_KEY [...other llmcode args...]
+docker pull khulnasoft/llmcode
+docker run -it --user $(id -u):$(id -g) --volume $(pwd):/app khulnasoft/llmcode --openai-api-key $OPENAI_API_KEY [...other llmcode args...]
 ```
 
 ### Full version
 
 ```
-docker pull paulgauthier/llmcode-full
-docker run -it --user $(id -u):$(id -g) --volume $(pwd):/app paulgauthier/llmcode-full --openai-api-key $OPENAI_API_KEY [...other llmcode args...]
+docker pull khulnasoft/llmcode-full
+docker run -it --user $(id -u):$(id -g) --volume $(pwd):/app khulnasoft/llmcode-full --openai-api-key $OPENAI_API_KEY [...other llmcode args...]
 ```
 
 ## How to use it

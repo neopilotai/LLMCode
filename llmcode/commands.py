@@ -81,7 +81,7 @@ class Commands:
         "Switch to a new LLM"
 
         model_name = args.strip()
-        model = models.Model(model_name)
+        model = models.Model(model_name, weak_model=self.coder.main_model.weak_model.name)
         models.sanity_check_models(self.io, model)
         raise SwitchCoder(main_model=model)
 
@@ -406,6 +406,7 @@ class Commands:
 
         fence = "`" * 3
 
+        file_res = []
         # files
         for fname in self.coder.abs_fnames:
             relative_fname = self.coder.get_rel_fname(fname)
@@ -416,7 +417,7 @@ class Commands:
                 # approximate
                 content = f"{relative_fname}\n{fence}\n" + content + "{fence}\n"
                 tokens = self.coder.main_model.token_count(content)
-            res.append((tokens, f"{relative_fname}", "/drop to remove"))
+            file_res.append((tokens, f"{relative_fname}", "/drop to remove"))
 
         # read-only files
         for fname in self.coder.abs_read_only_fnames:
@@ -426,7 +427,10 @@ class Commands:
                 # approximate
                 content = f"{relative_fname}\n{fence}\n" + content + "{fence}\n"
                 tokens = self.coder.main_model.token_count(content)
-                res.append((tokens, f"{relative_fname} (read-only)", "/drop to remove"))
+                file_res.append((tokens, f"{relative_fname} (read-only)", "/drop to remove"))
+
+        file_res.sort()
+        res.extend(file_res)
 
         self.io.tool_output(
             f"Approximate context window usage for {self.coder.main_model.name}, in tokens:"
@@ -758,6 +762,7 @@ class Commands:
 
             if self.io.confirm_ask(f"No files matched '{word}'. Do you want to create {fname}?"):
                 try:
+                    fname.parent.mkdir(parents=True, exist_ok=True)
                     fname.touch()
                     all_matched_files.add(str(fname))
                 except OSError as e:
