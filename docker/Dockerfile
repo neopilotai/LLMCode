@@ -27,8 +27,6 @@ RUN mkdir -p /home/appuser/.llmcode /home/appuser/.cache /home/appuser/pw-browse
 RUN git config --system --add safe.directory /app
 
 # This puts the container's ~/.llmcode into the host's project directory (usually host's cwd).
-# That way caches, version checks, etc get stored in the host filesystem not
-# simply discarded every time the container exits.
 ENV HOME=/app
 
 #########################
@@ -37,10 +35,14 @@ FROM base AS llmcode-full
 ENV LLMCODE_DOCKER_IMAGE=khulnasoft/llmcode-full
 
 COPY . /tmp/llmcode
+RUN chown -R appuser:appuser /tmp/llmcode
+
+# Debug: Check if files exist
+RUN ls -lah /tmp/llmcode
 
 # Install dependencies as root
 RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip && \
-    /venv/bin/python -m pip install --no-cache-dir /tmp/llmcode[help,browser,playwright] boto3 \
+    cd /tmp/llmcode && /venv/bin/python -m pip install --no-cache-dir ".[help,browser,playwright]" boto3 \
        --extra-index-url https://download.pytorch.org/whl/cpu && \
     rm -rf /tmp/llmcode
 
@@ -61,10 +63,14 @@ FROM base AS llmcode
 ENV LLMCODE_DOCKER_IMAGE=khulnasoft/llmcode
 
 COPY . /tmp/llmcode
+RUN chown -R appuser:appuser /tmp/llmcode
+
+# Debug: Check if files exist
+RUN ls -lah /tmp/llmcode
 
 # Install dependencies as root
 RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip && \
-    /venv/bin/python -m pip install --no-cache-dir /tmp/llmcode[playwright] boto3 \
+    cd /tmp/llmcode && /venv/bin/python -m pip install --no-cache-dir ".[playwright]" boto3 \
        --extra-index-url https://download.pytorch.org/whl/cpu && \
     rm -rf /tmp/llmcode
 
