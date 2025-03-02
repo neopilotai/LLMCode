@@ -36,10 +36,10 @@ but these are useful for scripting:
                       LLMCODE_STREAM]
 --message COMMAND, --msg COMMAND, -m COMMAND
                       Specify a single message to send GPT, process reply then exit
-                      (disables chat mode) [env var: LLMCODE_MESSAGE]
+                      (disables chat mode) [env var: LLMCODE]
 --message-file MESSAGE_FILE, -f MESSAGE_FILE
                       Specify a file containing the message to send GPT, process reply,
-                      then exit (disables chat mode) [env var: LLMCODE_MESSAGE_FILE]
+                      then exit (disables chat mode) [env var: LLMCODE_FILE]
 --yes                 Always say yes to every confirmation [env var: LLMCODE_YES]
 --auto-commits, --no-auto-commits
                       Enable/disable auto commit of GPT changes (default: True) [env var:

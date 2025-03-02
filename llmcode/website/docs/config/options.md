@@ -600,7 +600,7 @@ Show the version number and exit
 
 ### `--message COMMAND`
 Specify a single message to send the LLM, process reply then exit (disables chat mode)  
-Environment variable: `LLMCODE_MESSAGE`  
+Environment variable: `LLMCODE`  
 Aliases:
   - `--message COMMAND`
   - `--msg COMMAND`
@@ -608,7 +608,7 @@ Aliases:
 
 ### `--message-file MESSAGE_FILE`
 Specify a file containing the message to send the LLM, process reply, then exit (disables chat mode)  
-Environment variable: `LLMCODE_MESSAGE_FILE`  
+Environment variable: `LLMCODE_FILE`  
 Aliases:
   - `--message-file MESSAGE_FILE`
   - `-f MESSAGE_FILE`
