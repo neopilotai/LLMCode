@@ -158,10 +158,19 @@ def resolve_dirname(dirname, use_single_prior, make_new):
     return dirname
 
 
-@app.command()
+@app.command(context_settings={"help_option_names": ["-h", "--help"]})
+@click.version_option(prog_name="llmcode-benchmark", message="%(prog)s v%(version)s")
 def main(
-    dirnames: Optional[List[str]] = typer.Argument(None, help="Directory names"),
-    graphs: bool = typer.Option(False, "--graphs", help="Generate graphs"),
+    dirnames: Optional[List[str]] = typer.Argument(
+        None, 
+        help="Benchmark directory names to analyze"
+    ),
+    graphs: bool = typer.Option(
+        False, 
+        "--graphs", 
+        help="Generate interactive graphs of results",
+        rich_help_panel="Visualization"
+    ),
     model: str = typer.Option("gpt-3.5-turbo", "--model", "-m", help="Model name"),
     sleep: float = typer.Option(
         0, "--sleep", help="Sleep seconds between tests when single threaded"
@@ -189,7 +198,24 @@ def main(
     no_llmcode: bool = typer.Option(False, "--no-llmcode", help="Do not run llmcode"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
     stats_only: bool = typer.Option(
-        False, "--stats", "-s", help="Do not run tests, just collect stats on completed tests"
+        False, 
+        "--stats", 
+        "-s", 
+        help="[dim]Do not run tests, just collect stats on completed tests[/]",
+        rich_help_panel="Reporting"
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed debugging output",
+        rich_help_panel="Logging"
+    ),
+    color: bool = typer.Option(
+        True,
+        "--color/--no-color",
+        help="Enable/disable colored output",
+        rich_help_panel="Output Formatting"
     ),
     stats_languages: str = typer.Option(
         None,
@@ -1054,6 +1080,34 @@ def cleanup_test_output(output, testdir):
     res = res.replace(str(testdir), str(testdir.name))
     return res
 
+
+@app.command()
+def stats(
+    dirnames: List[str] = typer.Argument(..., help="Directories to analyze"),
+    export: str = typer.Option(None, "--export", help="Export stats to JSON file"),
+    color: bool = typer.Option(True, "--color/--no-color", help="Colorize output")
+):
+    """Generate detailed statistics from benchmark results"""
+    from rich.console import Console
+    from rich.table import Table
+    from problem_stats import analyze_exercise_solutions
+    
+    console = Console(color_system="auto" if color else None)
+    results = analyze_exercise_solutions(dirnames)
+    
+    if export:
+        with open(export, 'w') as f:
+            json.dump(results, f)
+        console.print(f"\n[green]✓[/] Stats exported to {export}")
+    else:
+        table = Table(title="Benchmark Statistics", show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        
+        for k, v in results.items():
+            table.add_row(k.replace('_', ' ').title(), str(v))
+            
+        console.print(table)
 
 if __name__ == "__main__":
     app()

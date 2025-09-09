@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+__version__ = "1.3.0"
+
 import argparse
 import json
 import shutil
