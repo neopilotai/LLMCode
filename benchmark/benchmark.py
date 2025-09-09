@@ -160,7 +160,14 @@ def resolve_dirname(dirname, use_single_prior, make_new):
 
 @app.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(prog_name="llmcode-benchmark", message="%(prog)s v%(version)s")
-def main(
+class Context:
+    """CLI context object to pass settings between commands"""
+    def __init__(self):
+        self.verbose = False
+        self.color = True
+
+@click.pass_context
+def main(ctx, 
     dirnames: Optional[List[str]] = typer.Argument(
         None, 
         help="Benchmark directory names to analyze"
