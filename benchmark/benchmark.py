@@ -15,7 +15,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import List, Optional
 
-import git
+try:
+    import git
+except ImportError:
+    print("Error: GitPython required - run 'pip install gitpython'")
+    sys.exit(1)
 import importlib_resources
 import lox
 import pandas as pd
