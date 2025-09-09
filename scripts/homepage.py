@@ -20,7 +20,9 @@ GITHUB_STARS_TOOLTIP = "Total number of GitHub stars the Llmcode project has rec
 PYPI_DOWNLOADS_TOOLTIP = "Total number of installations via pip from PyPI"
 TOKENS_WEEKLY_TOOLTIP = "Number of tokens processed weekly by Llmcode users"
 OPENROUTER_TOOLTIP = "Llmcode's ranking among applications on the OpenRouter platform"
-SINGULARITY_TOOLTIP = "Percentage of the new code in Llmcode's last release written by Llmcode itself"
+SINGULARITY_TOOLTIP = (
+    "Percentage of the new code in Llmcode's last release written by Llmcode itself"
+)
 
 # Cache settings
 CACHE_DIR = os.path.expanduser("~/.cache/llmcode-badges")

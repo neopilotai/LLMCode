@@ -137,8 +137,8 @@ class GitRepo:
                                      dirty files).
             context (str, optional): Context for generating commit message. Defaults to None.
             message (str, optional): Explicit commit message. Defaults to None (generate message).
-            llmcode_edits (bool, optional): Whether the changes were made by Llmcode. Defaults to False.
-                                          This affects attribution logic.
+            llmcode_edits (bool, optional): Whether the changes were made by Llmcode.
+                                          Defaults to False. This affects attribution logic.
             coder (Coder, optional): The Coder instance, used for config and model info.
                                      Defaults to None.
 
@@ -165,14 +165,16 @@ class GitRepo:
         - --attribute-author: Modify Author name to "User Name (llmcode)".
         - --attribute-committer: Modify Committer name to "User Name (llmcode)".
         - --attribute-co-authored-by: Add
-          "Co-authored-by: llmcode (<model>) <llmcode@llm.khulnasoft.com>" trailer to commit message.
+          "Co-authored-by: llmcode (<model>) <llmcode@llm.khulnasoft.com>"
+          trailer to commit message.
 
         Behavior Summary:
 
         1. When llmcode_edits = True (AI Changes):
            - If --attribute-co-authored-by=True:
              - Co-authored-by trailer IS ADDED.
-             - Author/Committer names are NOT modified by default (co-authored-by takes precedence).
+             - Author/Committer names are NOT modified by default (co-authored-by takes
+               precedence).
              - EXCEPTION: If --attribute-author/--attribute-committer is EXPLICITLY True, the
                respective name IS modified (explicit overrides precedence).
            - If --attribute-co-authored-by=False:

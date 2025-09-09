@@ -111,8 +111,8 @@ def process_all_tags_since(start_tag):
     results = []
     for i in tqdm(range(len(tags) - 1), desc="Processing tags"):
         start_tag, end_tag = tags[i], tags[i + 1]
-        all_file_counts, grand_total, total_lines, llmcode_total, llmcode_percentage, end_date = blame(
-            start_tag, end_tag
+        all_file_counts, grand_total, total_lines, llmcode_total, llmcode_percentage, end_date = (
+            blame(start_tag, end_tag)
         )
         results.append(
             {
@@ -150,8 +150,8 @@ def main():
         "--all-since",
         action="store_true",
         help=(
-            "Find all tags since the specified tag and print llmcode percentage between each pair of"
-            " successive tags"
+            "Find all tags since the specified tag and print llmcode percentage between each pair"
+            " of successive tags"
         ),
     )
     parser.add_argument(
@@ -192,8 +192,8 @@ def main():
 
         yaml_output = yaml.dump(existing_results, sort_keys=True)
     else:
-        all_file_counts, grand_total, total_lines, llmcode_total, llmcode_percentage, end_date = blame(
-            args.start_tag, args.end_tag
+        all_file_counts, grand_total, total_lines, llmcode_total, llmcode_percentage, end_date = (
+            blame(args.start_tag, args.end_tag)
         )
 
         result = {

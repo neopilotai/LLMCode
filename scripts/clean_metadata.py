@@ -192,7 +192,9 @@ def main():
             litellm_json_lines = json.dumps(
                 litellm_entry_copy, indent=4, sort_keys=True
             ).splitlines()
-            llmcode_json_lines = json.dumps(llmcode_entry_copy, indent=4, sort_keys=True).splitlines()
+            llmcode_json_lines = json.dumps(
+                llmcode_entry_copy, indent=4, sort_keys=True
+            ).splitlines()
 
             # Remove the dummy key line before diffing
             litellm_json_filtered = [line for line in litellm_json_lines if dummy_key not in line]
