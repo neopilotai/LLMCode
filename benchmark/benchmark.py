@@ -17,8 +17,9 @@ from typing import List, Optional
 
 try:
     import git
-except ImportError:
-    print("Error: GitPython required - run 'pip install gitpython'")
+except ModuleNotFoundError as e:
+    print(f"Error: {e}")
+    print("Please install GitPython with: pip install gitpython")
     sys.exit(1)
 import importlib_resources
 import lox
