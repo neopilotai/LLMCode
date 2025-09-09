@@ -158,16 +158,19 @@ def resolve_dirname(dirname, use_single_prior, make_new):
     return dirname
 
 
+import click
+from typer import Context as TyperContext
+
 @app.command(context_settings={"help_option_names": ["-h", "--help"]})
-@click.version_option(prog_name="llmcode-benchmark", message="%(prog)s v%(version)s")
-class Context:
+@typer.version_option(prog_name="llmcode-benchmark", message="%(prog)s v%(version)s")
+class AppContext:
     """CLI context object to pass settings between commands"""
     def __init__(self):
         self.verbose = False
         self.color = True
 
-@click.pass_context
-def main(ctx, 
+@typer.pass_context
+def main(ctx: TyperContext,
     dirnames: Optional[List[str]] = typer.Argument(
         None, 
         help="Benchmark directory names to analyze"
@@ -210,13 +213,6 @@ def main(ctx,
         "-s", 
         help="[dim]Do not run tests, just collect stats on completed tests[/]",
         rich_help_panel="Reporting"
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Show detailed debugging output",
-        rich_help_panel="Logging"
     ),
     color: bool = typer.Option(
         True,

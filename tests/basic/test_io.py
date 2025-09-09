@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
+from rich.text import Text
 
 from llmcode.dump import dump  # noqa: F401
 from llmcode.io import AutoCompleter, ConfirmGroup, InputOutput
@@ -17,8 +18,7 @@ class TestInputOutput(unittest.TestCase):
         for ending in ["platform", "lf", "crlf"]:
             io = InputOutput(line_endings=ending)
             self.assertEqual(
-                io.newline,
-                None if ending == "platform" else "\n" if ending == "lf" else "\r\n",
+                io.newline, None if ending == "platform" else "\n" if ending == "lf" else "\r\n"
             )
 
         # Test invalid line endings
@@ -34,6 +34,35 @@ class TestInputOutput(unittest.TestCase):
         with patch.dict(os.environ, {"NO_COLOR": "1"}):
             io = InputOutput(fancy_input=False)
             self.assertFalse(io.pretty)
+
+    def test_color_initialization(self):
+        """Test that color values are properly initialized with # prefix"""
+        # Test with hex colors without #
+        io = InputOutput(
+            user_input_color="00cc00",
+            tool_error_color="FF2222",
+            tool_warning_color="FFA500",
+            assistant_output_color="0088ff",
+            pretty=True,
+        )
+
+        # Check that # was added to hex colors
+        self.assertEqual(io.user_input_color, "#00cc00")
+        self.assertEqual(io.tool_error_color, "#FF2222")
+        self.assertEqual(io.tool_warning_color, "#FFA500")  # Already had #
+        self.assertEqual(io.assistant_output_color, "#0088ff")
+
+        # Test with named colors (should be unchanged)
+        io = InputOutput(user_input_color="blue", tool_error_color="red", pretty=True)
+
+        self.assertEqual(io.user_input_color, "blue")
+        self.assertEqual(io.tool_error_color, "red")
+
+        # Test with pretty=False (should not modify colors)
+        io = InputOutput(user_input_color="00cc00", tool_error_color="FF2222", pretty=False)
+
+        self.assertIsNone(io.user_input_color)
+        self.assertIsNone(io.tool_error_color)
 
     def test_dumb_terminal(self):
         with patch.dict(os.environ, {"TERM": "dumb"}):
@@ -342,10 +371,7 @@ class TestInputOutputMultilineMode(unittest.TestCase):
         # Mock console.print to capture the output
         with patch.object(io.console, "print") as mock_print:
             # First call will raise UnicodeEncodeError
-            mock_print.side_effect = [
-                UnicodeEncodeError("utf-8", "", 0, 1, "invalid"),
-                None,
-            ]
+            mock_print.side_effect = [UnicodeEncodeError("utf-8", "", 0, 1, "invalid"), None]
 
             io._tool_message(invalid_unicode)
 
@@ -396,6 +422,188 @@ class TestInputOutputMultilineMode(unittest.TestCase):
         # Test prompt_ask()
         io.prompt_ask("Test prompt?")
         self.assertTrue(io.multiline_mode)  # Should be restored
+
+    def test_ensure_hash_prefix(self):
+        """Test that ensure_hash_prefix correctly adds # to valid hex colors"""
+        from llmcode.io import ensure_hash_prefix
+
+        # Test valid hex colors without #
+        self.assertEqual(ensure_hash_prefix("000"), "#000")
+        self.assertEqual(ensure_hash_prefix("fff"), "#fff")
+        self.assertEqual(ensure_hash_prefix("F00"), "#F00")
+        self.assertEqual(ensure_hash_prefix("123456"), "#123456")
+        self.assertEqual(ensure_hash_prefix("abcdef"), "#abcdef")
+        self.assertEqual(ensure_hash_prefix("ABCDEF"), "#ABCDEF")
+
+        # Test hex colors that already have #
+        self.assertEqual(ensure_hash_prefix("#000"), "#000")
+        self.assertEqual(ensure_hash_prefix("#123456"), "#123456")
+
+        # Test invalid inputs (should return unchanged)
+        self.assertEqual(ensure_hash_prefix(""), "")
+        self.assertEqual(ensure_hash_prefix(None), None)
+        self.assertEqual(ensure_hash_prefix("red"), "red")  # Named color
+        self.assertEqual(ensure_hash_prefix("12345"), "12345")  # Wrong length
+        self.assertEqual(ensure_hash_prefix("1234567"), "1234567")  # Wrong length
+        self.assertEqual(ensure_hash_prefix("xyz"), "xyz")  # Invalid hex chars
+        self.assertEqual(ensure_hash_prefix("12345g"), "12345g")  # Invalid hex chars
+
+    def test_tool_output_color_handling(self):
+        """Test that tool_output correctly handles hex colors without # prefix"""
+        from unittest.mock import patch
+
+        # Create IO with hex color without # for tool_output_color
+        io = InputOutput(tool_output_color="FFA500", pretty=True)
+
+        # Patch console.print to avoid actual printing
+        with patch.object(io.console, "print") as mock_print:
+            # This would raise ColorParseError without the fix
+            io.tool_output("Test message")
+
+            # Verify the call was made without error
+            mock_print.assert_called_once()
+
+            # Verify the style was correctly created with # prefix
+            # The first argument is the message, second would be the style
+            kwargs = mock_print.call_args.kwargs
+            self.assertIn("style", kwargs)
+
+        # Test with other hex color
+        io = InputOutput(tool_output_color="00FF00", pretty=True)
+        with patch.object(io.console, "print") as mock_print:
+            io.tool_output("Test message")
+            mock_print.assert_called_once()
+
+
+@patch("llmcode.io.is_dumb_terminal", return_value=False)
+@patch.dict(os.environ, {"NO_COLOR": ""})
+class TestInputOutputFormatFiles(unittest.TestCase):
+    def test_format_files_for_input_pretty_false(self, mock_is_dumb_terminal):
+        io = InputOutput(pretty=False, fancy_input=False)
+        rel_fnames = ["file1.txt", "file[markup].txt", "ro_file.txt"]
+        rel_read_only_fnames = ["ro_file.txt"]
+
+        expected_output = "file1.txt\nfile[markup].txt\nro_file.txt (read only)\n"
+        # Sort the expected lines because the order of editable vs read-only might vary
+        # depending on internal sorting, but the content should be the same.
+        # The method sorts editable_files and read_only_files separately.
+        # The final output joins sorted(read_only_files) + sorted(editable_files)
+
+        # Based on current implementation:
+        # read_only_files = ["ro_file.txt (read only)"]
+        # editable_files = ["file1.txt", "file[markup].txt"]
+        # output = "\n".join(read_only_files + editable_files) + "\n"
+
+        # Correct expected output based on implementation:
+        expected_output_lines = sorted(
+            [
+                "ro_file.txt (read only)",
+                "file1.txt",
+                "file[markup].txt",
+            ]
+        )
+        expected_output = "\n".join(expected_output_lines) + "\n"
+
+        actual_output = io.format_files_for_input(rel_fnames, rel_read_only_fnames)
+
+        # Normalizing actual output by splitting, sorting, and rejoining
+        actual_output_lines = sorted(filter(None, actual_output.splitlines()))
+        normalized_actual_output = "\n".join(actual_output_lines) + "\n"
+
+        self.assertEqual(normalized_actual_output, expected_output)
+
+    @patch("llmcode.io.Columns")
+    @patch("os.path.abspath")
+    @patch("os.path.join")
+    def test_format_files_for_input_pretty_true_no_files(
+        self, mock_join, mock_abspath, mock_columns, mock_is_dumb_terminal
+    ):
+        io = InputOutput(pretty=True, root="test_root")
+        io.format_files_for_input([], [])
+        mock_columns.assert_not_called()
+
+    @patch("llmcode.io.Columns")
+    @patch("os.path.abspath")
+    @patch("os.path.join")
+    def test_format_files_for_input_pretty_true_editable_only(
+        self, mock_join, mock_abspath, mock_columns, mock_is_dumb_terminal
+    ):
+        io = InputOutput(pretty=True, root="test_root")
+        rel_fnames = ["edit1.txt", "edit[markup].txt"]
+
+        io.format_files_for_input(rel_fnames, [])
+
+        mock_columns.assert_called_once()
+        args, _ = mock_columns.call_args
+        renderables = args[0]
+
+        self.assertEqual(len(renderables), 2)
+        self.assertIsInstance(renderables[0], Text)
+        self.assertEqual(renderables[0].plain, "edit1.txt")
+        self.assertIsInstance(renderables[1], Text)
+        self.assertEqual(renderables[1].plain, "edit[markup].txt")
+
+    @patch("llmcode.io.Columns")
+    @patch("os.path.abspath")
+    @patch("os.path.join")
+    def test_format_files_for_input_pretty_true_readonly_only(
+        self, mock_join, mock_abspath, mock_columns, mock_is_dumb_terminal
+    ):
+        io = InputOutput(pretty=True, root="test_root")
+
+        # Mock path functions to ensure rel_path is chosen by the shortener logic
+        mock_join.side_effect = lambda *args: "/".join(args)
+        mock_abspath.side_effect = lambda p: "/ABS_PREFIX_VERY_LONG/" + os.path.normpath(p)
+
+        rel_read_only_fnames = ["ro1.txt", "ro[markup].txt"]
+        # When all files in chat are read-only
+        rel_fnames = list(rel_read_only_fnames)
+
+        io.format_files_for_input(rel_fnames, rel_read_only_fnames)
+
+        self.assertEqual(mock_columns.call_count, 2)
+        args, _ = mock_columns.call_args
+        renderables = args[0]
+
+        self.assertEqual(len(renderables), 3)  # Readonly: + 2 files
+        self.assertIsInstance(renderables[0], Text)
+        self.assertEqual(renderables[0].plain, "Readonly:")
+        self.assertIsInstance(renderables[1], Text)
+        self.assertEqual(renderables[1].plain, "ro1.txt")
+        self.assertIsInstance(renderables[2], Text)
+        self.assertEqual(renderables[2].plain, "ro[markup].txt")
+
+    @patch("llmcode.io.Columns")
+    @patch("os.path.abspath")
+    @patch("os.path.join")
+    def test_format_files_for_input_pretty_true_mixed_files(
+        self, mock_join, mock_abspath, mock_columns, mock_is_dumb_terminal
+    ):
+        io = InputOutput(pretty=True, root="test_root")
+
+        mock_join.side_effect = lambda *args: "/".join(args)
+        mock_abspath.side_effect = lambda p: "/ABS_PREFIX_VERY_LONG/" + os.path.normpath(p)
+
+        rel_fnames = ["edit1.txt", "edit[markup].txt", "ro1.txt", "ro[markup].txt"]
+        rel_read_only_fnames = ["ro1.txt", "ro[markup].txt"]
+
+        io.format_files_for_input(rel_fnames, rel_read_only_fnames)
+
+        self.assertEqual(mock_columns.call_count, 4)
+
+        # Check arguments for the first rendering of read-only files (call 0)
+        args_ro, _ = mock_columns.call_args_list[0]
+        renderables_ro = args_ro[0]
+        self.assertEqual(
+            renderables_ro, [Text("Readonly:"), Text("ro1.txt"), Text("ro[markup].txt")]
+        )
+
+        # Check arguments for the first rendering of editable files (call 2)
+        args_ed, _ = mock_columns.call_args_list[2]
+        renderables_ed = args_ed[0]
+        self.assertEqual(
+            renderables_ed, [Text("Editable:"), Text("edit1.txt"), Text("edit[markup].txt")]
+        )
 
 
 if __name__ == "__main__":

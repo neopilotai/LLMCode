@@ -15,9 +15,18 @@ import time
 import traceback
 from collections import defaultdict
 from datetime import datetime
+
+# Optional dependency: used to convert locale codes (eg ``en_US``)
+# into human-readable language names (eg ``English``).
+try:
+    from babel import Locale  # type: ignore
+except ImportError:  # Babel not installed – we will fall back to a small mapping
+    Locale = None
 from json.decoder import JSONDecodeError
 from pathlib import Path
 from typing import List
+
+from rich.console import Console
 
 from llmcode import __version__, models, prompts, urls, utils
 from llmcode.analytics import Analytics
@@ -28,10 +37,17 @@ from llmcode.io import ConfirmGroup, InputOutput
 from llmcode.linter import Linter
 from llmcode.llm import litellm
 from llmcode.models import RETRY_TIMEOUT
+from llmcode.reasoning_tags import (
+    REASONING_TAG,
+    format_reasoning_content,
+    remove_reasoning_content,
+    replace_reasoning_tags,
+)
 from llmcode.repo import ANY_GIT_ERROR, GitRepo
 from llmcode.repomap import RepoMap
 from llmcode.run_cmd import run_cmd
 from llmcode.utils import format_content, format_messages, format_tokens, is_image_file
+from llmcode.waiting import WaitingSpinner
 
 from ..dump import dump  # noqa: F401
 from .chat_chunks import ChatChunks
@@ -95,8 +111,6 @@ class Coder:
     partial_response_content = ""
     commit_before_message = []
     message_cost = 0.0
-    message_tokens_sent = 0
-    message_tokens_received = 0
     add_cache_headers = False
     cache_warming_thread = None
     num_cache_warming_pings = 0
@@ -104,6 +118,7 @@ class Coder:
     detect_urls = True
     ignore_mentions = None
     chat_language = None
+    commit_language = None
     file_watcher = None
 
     @classmethod
@@ -162,6 +177,8 @@ class Coder:
                 commands=from_coder.commands.clone(),
                 total_cost=from_coder.total_cost,
                 ignore_mentions=from_coder.ignore_mentions,
+                total_tokens_sent=from_coder.total_tokens_sent,
+                total_tokens_received=from_coder.total_tokens_received,
                 file_watcher=from_coder.file_watcher,
             )
             use_kwargs.update(update)  # override to complete the switch
@@ -201,10 +218,22 @@ class Coder:
             prefix = "Model"
 
         output = f"{prefix}: {main_model.name} with {self.edit_format} edit format"
+
+        # Check for thinking token budget
+        thinking_tokens = main_model.get_thinking_tokens()
+        if thinking_tokens:
+            output += f", {thinking_tokens} think tokens"
+
+        # Check for reasoning effort
+        reasoning_effort = main_model.get_reasoning_effort()
+        if reasoning_effort:
+            output += f", reasoning {reasoning_effort}"
+
         if self.add_cache_headers or main_model.caches_by_default:
             output += ", prompt cache"
         if main_model.info.get("supports_assistant_prefill"):
             output += ", infinite output"
+
         lines.append(output)
 
         if self.edit_format == "architect":
@@ -273,6 +302,7 @@ class Coder:
         io,
         repo=None,
         fnames=None,
+        add_gitignore_files=False,
         read_only_fnames=None,
         show_diffs=False,
         auto_commits=True,
@@ -300,22 +330,28 @@ class Coder:
         num_cache_warming_pings=0,
         suggest_shell_commands=True,
         chat_language=None,
+        commit_language=None,
         detect_urls=True,
         ignore_mentions=None,
+        total_tokens_sent=0,
+        total_tokens_received=0,
         file_watcher=None,
         auto_copy_context=False,
+        auto_accept_architect=True,
     ):
         # Fill in a dummy Analytics if needed, but it is never .enable()'d
         self.analytics = analytics if analytics is not None else Analytics()
 
         self.event = self.analytics.event
         self.chat_language = chat_language
+        self.commit_language = commit_language
         self.commit_before_message = []
         self.llmcode_commit_hashes = set()
         self.rejected_urls = set()
         self.abs_root_path_cache = {}
 
         self.auto_copy_context = auto_copy_context
+        self.auto_accept_architect = auto_accept_architect
 
         self.ignore_mentions = ignore_mentions
         if not self.ignore_mentions:
@@ -346,10 +382,15 @@ class Coder:
         self.need_commit_before_edits = set()
 
         self.total_cost = total_cost
+        self.total_tokens_sent = total_tokens_sent
+        self.total_tokens_received = total_tokens_received
+        self.message_tokens_sent = 0
+        self.message_tokens_received = 0
 
         self.verbose = verbose
         self.abs_fnames = set()
         self.abs_read_only_fnames = set()
+        self.add_gitignore_files = add_gitignore_files
 
         if cur_messages:
             self.cur_messages = cur_messages
@@ -375,6 +416,10 @@ class Coder:
         self.pretty = self.io.pretty
 
         self.main_model = main_model
+        # Set the reasoning tag name based on model settings or default
+        self.reasoning_tag_name = (
+            self.main_model.reasoning_tag if self.main_model.reasoning_tag else REASONING_TAG
+        )
 
         self.stream = stream and main_model.streaming
 
@@ -403,8 +448,9 @@ class Coder:
 
         for fname in fnames:
             fname = Path(fname)
-            if self.repo and self.repo.git_ignored_file(fname):
+            if self.repo and self.repo.git_ignored_file(fname) and not self.add_gitignore_files:
                 self.io.tool_warning(f"Skipping {fname} that matches gitignore spec.")
+                continue
 
             if self.repo and self.repo.ignored_file(fname):
                 self.io.tool_warning(f"Skipping {fname} that matches llmcodeignore spec.")
@@ -539,6 +585,15 @@ class Coder:
             return False
 
         return True
+
+    def _stop_waiting_spinner(self):
+        """Stop and clear the waiting spinner if it is running."""
+        spinner = getattr(self, "waiting_spinner", None)
+        if spinner:
+            try:
+                spinner.stop()
+            finally:
+                self.waiting_spinner = None
 
     def get_abs_fnames_content(self):
         for fname in list(self.abs_fnames):
@@ -713,8 +768,7 @@ class Coder:
         if read_only_content:
             readonly_messages += [
                 dict(
-                    role="user",
-                    content=self.gpt_prompts.read_only_files_prefix + read_only_content,
+                    role="user", content=self.gpt_prompts.read_only_files_prefix + read_only_content
                 ),
                 dict(
                     role="assistant",
@@ -727,10 +781,7 @@ class Coder:
         if images_message is not None:
             readonly_messages += [
                 images_message,
-                dict(
-                    role="assistant",
-                    content="Ok, I will use these images as references.",
-                ),
+                dict(role="assistant", content="Ok, I will use these images as references."),
             ]
 
         return readonly_messages
@@ -792,10 +843,7 @@ class Coder:
             if mime_type.startswith("image/") and supports_images:
                 image_messages += [
                     {"type": "text", "text": f"Image file: {rel_fname}"},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": image_url, "detail": "high"},
-                    },
+                    {"type": "image_url", "image_url": {"url": image_url, "detail": "high"}},
                 ]
             elif mime_type == "application/pdf" and supports_pdfs:
                 image_messages += [
@@ -905,10 +953,11 @@ class Coder:
         else:
             self.io.tool_error(text)
 
-        url_pattern = re.compile(r"(https?://[^\s/$.?#].[^\s]*)")
+        # Exclude double quotes from the matched URL characters
+        url_pattern = re.compile(r'(https?://[^\s/$.?#].[^\s"]*)')
         urls = list(set(url_pattern.findall(text)))  # Use set to remove duplicates
         for url in urls:
-            url = url.rstrip(".',\"")
+            url = url.rstrip(".',\"}")  # Added } to the characters to strip
             self.io.offer_url(url)
         return urls
 
@@ -917,7 +966,8 @@ class Coder:
         if not self.detect_urls:
             return inp
 
-        url_pattern = re.compile(r"(https?://[^\s/$.?#].[^\s]*[^\s,.])")
+        # Exclude double quotes from the matched URL characters
+        url_pattern = re.compile(r'(https?://[^\s/$.?#].[^\s"]*[^\s,.])')
         urls = list(set(url_pattern.findall(inp)))  # Use set to remove duplicates
         group = ConfirmGroup(urls)
         for url in urls:
@@ -934,6 +984,9 @@ class Coder:
         return inp
 
     def keyboard_interrupt(self):
+        # Ensure cursor is visible on exit
+        Console().show_cursor(True)
+
         now = time.time()
 
         thresh = 2  # seconds
@@ -992,28 +1045,93 @@ class Coder:
             ]
         self.cur_messages = []
 
-    def get_user_language(self):
-        if self.chat_language:
-            return self.chat_language
+    def normalize_language(self, lang_code):
+        """
+        Convert a locale code such as ``en_US`` or ``fr`` into a readable
+        language name (e.g. ``English`` or ``French``).  If Babel is
+        available it is used for reliable conversion; otherwise a small
+        built-in fallback map handles common languages.
+        """
+        if not lang_code:
+            return None
 
+        if lang_code.upper() in ("C", "POSIX"):
+            return None
+
+        # Probably already a language name
+        if (
+            len(lang_code) > 3
+            and "_" not in lang_code
+            and "-" not in lang_code
+            and lang_code[0].isupper()
+        ):
+            return lang_code
+
+        # Preferred: Babel
+        if Locale is not None:
+            try:
+                loc = Locale.parse(lang_code.replace("-", "_"))
+                return loc.get_display_name("en").capitalize()
+            except Exception:
+                pass  # Fall back to manual mapping
+
+        # Simple fallback for common languages
+        fallback = {
+            "en": "English",
+            "fr": "French",
+            "es": "Spanish",
+            "de": "German",
+            "it": "Italian",
+            "pt": "Portuguese",
+            "zh": "Chinese",
+            "ja": "Japanese",
+            "ko": "Korean",
+            "ru": "Russian",
+        }
+        primary_lang_code = lang_code.replace("-", "_").split("_")[0].lower()
+        return fallback.get(primary_lang_code, lang_code)
+
+    def get_user_language(self):
+        """
+        Detect the user's language preference and return a human-readable
+        language name such as ``English``. Detection order:
+
+        1. ``self.chat_language`` if explicitly set
+        2. ``locale.getlocale()``
+        3. ``LANG`` / ``LANGUAGE`` / ``LC_ALL`` / ``LC_MESSAGES`` environment variables
+        """
+
+        # Explicit override
+        if self.chat_language:
+            return self.normalize_language(self.chat_language)
+
+        # System locale
         try:
             lang = locale.getlocale()[0]
             if lang:
-                return lang  # Return the full language code, including country
+                lang = self.normalize_language(lang)
+            if lang:
+                return lang
         except Exception:
             pass
 
-        for env_var in ["LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES"]:
+        # Environment variables
+        for env_var in ("LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES"):
             lang = os.environ.get(env_var)
             if lang:
-                return lang.split(".")[
-                    0
-                ]  # Return language and country, but remove encoding if present
+                lang = lang.split(".")[0]  # Strip encoding if present
+                return self.normalize_language(lang)
 
         return None
 
     def get_platform_info(self):
-        platform_text = f"- Platform: {platform.platform()}\n"
+        platform_text = ""
+        try:
+            platform_text = f"- Platform: {platform.platform()}\n"
+        except KeyError:
+            # Skip platform info if it can't be retrieved
+            platform_text = "- Platform information unavailable\n"
+
         shell_var = "COMSPEC" if os.name == "nt" else "SHELL"
         shell_val = os.getenv(shell_var)
         platform_text += f"- Shell: {shell_var}={shell_val}\n"
@@ -1054,22 +1172,33 @@ class Coder:
         return platform_text
 
     def fmt_system_prompt(self, prompt):
-        lazy_prompt = self.gpt_prompts.lazy_prompt if self.main_model.lazy else ""
+        final_reminders = []
+        if self.main_model.lazy:
+            final_reminders.append(self.gpt_prompts.lazy_prompt)
+        if self.main_model.overeager:
+            final_reminders.append(self.gpt_prompts.overeager_prompt)
+
+        user_lang = self.get_user_language()
+        if user_lang:
+            final_reminders.append(f"Reply in {user_lang}.\n")
+
         platform_text = self.get_platform_info()
 
         if self.suggest_shell_commands:
             shell_cmd_prompt = self.gpt_prompts.shell_cmd_prompt.format(platform=platform_text)
             shell_cmd_reminder = self.gpt_prompts.shell_cmd_reminder.format(platform=platform_text)
+            rename_with_shell = self.gpt_prompts.rename_with_shell
         else:
             shell_cmd_prompt = self.gpt_prompts.no_shell_cmd_prompt.format(platform=platform_text)
             shell_cmd_reminder = self.gpt_prompts.no_shell_cmd_reminder.format(
                 platform=platform_text
             )
+            rename_with_shell = ""
 
-        if self.chat_language:
-            language = self.chat_language
+        if user_lang:  # user_lang is the result of self.get_user_language()
+            language = user_lang
         else:
-            language = "the same language they are using"
+            language = "the same language they are using"  # Default if no specific lang detected
 
         if self.fence[0] == "`" * 4:
             quad_backtick_reminder = (
@@ -1078,24 +1207,27 @@ class Coder:
         else:
             quad_backtick_reminder = ""
 
+        final_reminders = "\n\n".join(final_reminders)
+
         prompt = prompt.format(
             fence=self.fence,
             quad_backtick_reminder=quad_backtick_reminder,
-            lazy_prompt=lazy_prompt,
+            final_reminders=final_reminders,
             platform=platform_text,
             shell_cmd_prompt=shell_cmd_prompt,
+            rename_with_shell=rename_with_shell,
             shell_cmd_reminder=shell_cmd_reminder,
+            go_ahead_tip=self.gpt_prompts.go_ahead_tip,
             language=language,
         )
-
-        if self.main_model.system_prompt_prefix:
-            prompt = self.main_model.system_prompt_prefix + prompt
 
         return prompt
 
     def format_chat_chunks(self):
         self.choose_fence()
         main_sys = self.fmt_system_prompt(self.gpt_prompts.main_system)
+        if self.main_model.system_prompt_prefix:
+            main_sys = self.main_model.system_prompt_prefix + "\n" + main_sys
 
         example_messages = []
         if self.main_model.examples_as_sys_msg:
@@ -1153,8 +1285,7 @@ class Coder:
         if self.gpt_prompts.system_reminder:
             reminder_message = [
                 dict(
-                    role="system",
-                    content=self.fmt_system_prompt(self.gpt_prompts.system_reminder),
+                    role="system", content=self.fmt_system_prompt(self.gpt_prompts.system_reminder)
                 ),
             ]
         else:
@@ -1288,6 +1419,9 @@ class Coder:
     def send_message(self, inp):
         self.event("message_send_starting")
 
+        # Notify IO that LLM processing is starting
+        self.io.llm_started()
+
         self.cur_messages += [
             dict(role="user", content=inp),
         ]
@@ -1302,8 +1436,13 @@ class Coder:
             utils.show_messages(messages, functions=self.functions)
 
         self.multi_response_content = ""
-        if self.show_pretty() and self.stream:
-            self.mdstream = self.io.get_assistant_mdstream()
+        if self.show_pretty():
+            self.waiting_spinner = WaitingSpinner("Waiting for " + self.main_model.name)
+            self.waiting_spinner.start()
+            if self.stream:
+                self.mdstream = self.io.get_assistant_mdstream()
+            else:
+                self.mdstream = None
         else:
             self.mdstream = None
 
@@ -1362,11 +1501,7 @@ class Coder:
                         messages[-1]["content"] = self.multi_response_content
                     else:
                         messages.append(
-                            dict(
-                                role="assistant",
-                                content=self.multi_response_content,
-                                prefix=True,
-                            )
+                            dict(role="assistant", content=self.multi_response_content, prefix=True)
                         )
                 except Exception as err:
                     self.mdstream = None
@@ -1380,11 +1515,17 @@ class Coder:
                 self.live_incremental_response(True)
                 self.mdstream = None
 
+            # Ensure any waiting spinner is stopped
+            self._stop_waiting_spinner()
+
             self.partial_response_content = self.get_multi_response_content_in_progress(True)
-            self.partial_response_content = self.main_model.remove_reasoning_content(
-                self.partial_response_content
-            )
+            self.remove_reasoning_content()
             self.multi_response_content = ""
+
+        ###
+        # print()
+        # print("=" * 20)
+        # dump(self.partial_response_content)
 
         self.io.tool_output()
 
@@ -1426,7 +1567,8 @@ class Coder:
                 return
 
             try:
-                self.reply_completed()
+                if self.reply_completed():
+                    return
             except KeyboardInterrupt:
                 interrupted = True
 
@@ -1436,10 +1578,7 @@ class Coder:
             else:
                 self.cur_messages += [dict(role="user", content="^C KeyboardInterrupt")]
             self.cur_messages += [
-                dict(
-                    role="assistant",
-                    content="I see that you interrupted my previous reply.",
-                )
+                dict(role="assistant", content="I see that you interrupted my previous reply.")
             ]
             return
 
@@ -1572,30 +1711,30 @@ class Coder:
                 )
             ]
 
-    def get_file_mentions(self, content):
+    def get_file_mentions(self, content, ignore_current=False):
         words = set(word for word in content.split())
 
         # drop sentence punctuation from the end
         words = set(word.rstrip(",.!;:?") for word in words)
 
         # strip away all kinds of quotes
-        quotes = "".join(['"', "'", "`"])
+        quotes = "\"'`*_"
         words = set(word.strip(quotes) for word in words)
 
-        addable_rel_fnames = self.get_addable_relative_files()
+        if ignore_current:
+            addable_rel_fnames = self.get_all_relative_files()
+            existing_basenames = {}
+        else:
+            addable_rel_fnames = self.get_addable_relative_files()
 
-        # Get basenames of files already in chat or read-only
-        existing_basenames = {os.path.basename(f) for f in self.get_inchat_relative_files()} | {
-            os.path.basename(self.get_rel_fname(f)) for f in self.abs_read_only_fnames
-        }
+            # Get basenames of files already in chat or read-only
+            existing_basenames = {os.path.basename(f) for f in self.get_inchat_relative_files()} | {
+                os.path.basename(self.get_rel_fname(f)) for f in self.abs_read_only_fnames
+            }
 
         mentioned_rel_fnames = set()
         fname_to_rel_fnames = {}
         for rel_fname in addable_rel_fnames:
-            # Skip files that share a basename with files already in chat
-            if os.path.basename(rel_fname) in existing_basenames:
-                continue
-
             normalized_rel_fname = rel_fname.replace("\\", "/")
             normalized_words = set(word.replace("\\", "/") for word in words)
             if normalized_rel_fname in normalized_words:
@@ -1610,6 +1749,10 @@ class Coder:
                 fname_to_rel_fnames[fname].append(rel_fname)
 
         for fname, rel_fnames in fname_to_rel_fnames.items():
+            # If the basename is already in chat, don't add based on a basename mention
+            if fname in existing_basenames:
+                continue
+            # If the basename mention is unique among addable files and present in the text
             if len(rel_fnames) == 1 and fname in words:
                 mentioned_rel_fnames.add(rel_fnames[0])
 
@@ -1627,10 +1770,7 @@ class Coder:
         group = ConfirmGroup(new_mentions)
         for rel_fname in sorted(new_mentions):
             if self.io.confirm_ask(
-                "Add file to the chat?",
-                subject=rel_fname,
-                group=group,
-                allow_never=True,
+                "Add file to the chat?", subject=rel_fname, group=group, allow_never=True
             ):
                 self.add_rel_fname(rel_fname)
                 added_fnames.append(rel_fname)
@@ -1641,6 +1781,9 @@ class Coder:
             return prompts.added_files.format(fnames=", ".join(added_fnames))
 
     def send(self, messages, model=None, functions=None):
+        self.got_reasoning_content = False
+        self.ended_reasoning_content = False
+
         if not model:
             model = self.main_model
 
@@ -1691,6 +1834,9 @@ class Coder:
                     self.io.ai_output(json.dumps(args, indent=4))
 
     def show_send_output(self, completion):
+        # Stop spinner once we have a response
+        self._stop_waiting_spinner()
+
         if self.verbose:
             print(completion)
 
@@ -1707,6 +1853,14 @@ class Coder:
                 )
         except AttributeError as func_err:
             show_func_err = func_err
+
+        try:
+            reasoning_content = completion.choices[0].message.reasoning_content
+        except AttributeError:
+            try:
+                reasoning_content = completion.choices[0].message.reasoning
+            except AttributeError:
+                reasoning_content = None
 
         try:
             self.partial_response_content = completion.choices[0].message.content or ""
@@ -1726,6 +1880,15 @@ class Coder:
             raise Exception("No data found in LLM response!")
 
         show_resp = self.render_incremental_response(True)
+
+        if reasoning_content:
+            formatted_reasoning = format_reasoning_content(
+                reasoning_content, self.reasoning_tag_name
+            )
+            show_resp = formatted_reasoning + show_resp
+
+        show_resp = replace_reasoning_tags(show_resp, self.reasoning_tag_name)
+
         self.io.assistant_output(show_resp, pretty=self.show_pretty())
 
         if (
@@ -1735,6 +1898,8 @@ class Coder:
             raise FinishReasonLength()
 
     def show_send_output_stream(self, completion):
+        received_content = False
+
         for chunk in completion:
             if len(chunk.choices) == 0:
                 continue
@@ -1753,19 +1918,48 @@ class Coder:
                         self.partial_response_function_call[k] += v
                     else:
                         self.partial_response_function_call[k] = v
+                received_content = True
             except AttributeError:
                 pass
 
+            text = ""
+
             try:
-                text = chunk.choices[0].delta.content
-                if text:
-                    self.partial_response_content += text
+                reasoning_content = chunk.choices[0].delta.reasoning_content
             except AttributeError:
-                text = None
+                try:
+                    reasoning_content = chunk.choices[0].delta.reasoning
+                except AttributeError:
+                    reasoning_content = None
+
+            if reasoning_content:
+                if not self.got_reasoning_content:
+                    text += f"<{REASONING_TAG}>\n\n"
+                text += reasoning_content
+                self.got_reasoning_content = True
+                received_content = True
+
+            try:
+                content = chunk.choices[0].delta.content
+                if content:
+                    if self.got_reasoning_content and not self.ended_reasoning_content:
+                        text += f"\n\n</{self.reasoning_tag_name}>\n\n"
+                        self.ended_reasoning_content = True
+
+                    text += content
+                    received_content = True
+            except AttributeError:
+                pass
+
+            if received_content:
+                self._stop_waiting_spinner()
+            self.partial_response_content += text
 
             if self.show_pretty():
                 self.live_incremental_response(False)
             elif text:
+                # Apply reasoning tag formatting
+                text = replace_reasoning_tags(text, self.reasoning_tag_name)
                 try:
                     sys.stdout.write(text)
                 except UnicodeEncodeError:
@@ -1777,12 +1971,25 @@ class Coder:
                 sys.stdout.flush()
                 yield text
 
+        if not received_content:
+            self.io.tool_warning("Empty response received from LLM. Check your provider account?")
+
     def live_incremental_response(self, final):
         show_resp = self.render_incremental_response(final)
+        # Apply any reasoning tag formatting
+        show_resp = replace_reasoning_tags(show_resp, self.reasoning_tag_name)
         self.mdstream.update(show_resp, final=final)
 
     def render_incremental_response(self, final):
         return self.get_multi_response_content_in_progress()
+
+    def remove_reasoning_content(self):
+        """Remove reasoning content from the model's response."""
+
+        self.partial_response_content = remove_reasoning_content(
+            self.partial_response_content,
+            self.reasoning_tag_name,
+        )
 
     def calculate_and_show_tokens_and_cost(self, messages, completion=None):
         prompt_tokens = 0
@@ -1825,6 +2032,44 @@ class Coder:
             self.usage_report = tokens_report
             return
 
+        try:
+            # Try and use litellm's built in cost calculator. Seems to work for non-streaming only?
+            cost = litellm.completion_cost(completion_response=completion)
+        except Exception:
+            cost = 0
+
+        if not cost:
+            cost = self.compute_costs_from_tokens(
+                prompt_tokens, completion_tokens, cache_write_tokens, cache_hit_tokens
+            )
+
+        self.total_cost += cost
+        self.message_cost += cost
+
+        def format_cost(value):
+            if value == 0:
+                return "0.00"
+            magnitude = abs(value)
+            if magnitude >= 0.01:
+                return f"{value:.2f}"
+            else:
+                return f"{value:.{max(2, 2 - int(math.log10(magnitude)))}f}"
+
+        cost_report = (
+            f"Cost: ${format_cost(self.message_cost)} message,"
+            f" ${format_cost(self.total_cost)} session."
+        )
+
+        if cache_hit_tokens and cache_write_tokens:
+            sep = "\n"
+        else:
+            sep = " "
+
+        self.usage_report = tokens_report + sep + cost_report
+
+    def compute_costs_from_tokens(
+        self, prompt_tokens, completion_tokens, cache_write_tokens, cache_hit_tokens
+    ):
         cost = 0
 
         input_cost_per_token = self.main_model.info.get("input_cost_per_token") or 0
@@ -1852,39 +2097,14 @@ class Coder:
             cost += prompt_tokens * input_cost_per_token
 
         cost += completion_tokens * output_cost_per_token
-
-        self.total_cost += cost
-        self.message_cost += cost
-
-        def format_cost(value):
-            if value == 0:
-                return "0.00"
-            magnitude = abs(value)
-            if magnitude >= 0.01:
-                return f"{value:.2f}"
-            else:
-                return f"{value:.{max(2, 2 - int(math.log10(magnitude)))}f}"
-
-        cost_report = (
-            f"Cost: ${format_cost(self.message_cost)} message,"
-            f" ${format_cost(self.total_cost)} session."
-        )
-
-        if self.add_cache_headers and self.stream:
-            warning = " Use --no-stream for accurate caching costs."
-            self.usage_report = tokens_report + "\n" + cost_report + warning
-            return
-
-        if cache_hit_tokens and cache_write_tokens:
-            sep = "\n"
-        else:
-            sep = " "
-
-        self.usage_report = tokens_report + sep + cost_report
+        return cost
 
     def show_usage_report(self):
         if not self.usage_report:
             return
+
+        self.total_tokens_sent += self.message_tokens_sent
+        self.total_tokens_received += self.message_tokens_received
 
         self.io.tool_output(self.usage_report)
 
@@ -2160,7 +2380,7 @@ class Coder:
             context = self.get_context_from_history(self.cur_messages)
 
         try:
-            res = self.repo.commit(fnames=edited, context=context, llmcode_edits=True)
+            res = self.repo.commit(fnames=edited, context=context, llmcode_edits=True, coder=self)
             if res:
                 self.show_auto_commit_outcome(res)
                 commit_hash, commit_message = res
@@ -2196,7 +2416,7 @@ class Coder:
         if not self.repo:
             return
 
-        self.repo.commit(fnames=self.need_commit_before_edits)
+        self.repo.commit(fnames=self.need_commit_before_edits, coder=self)
 
         # files changed, move cur messages back behind the files messages
         # self.move_back_cur_messages(self.gpt_prompts.files_content_local_edits)

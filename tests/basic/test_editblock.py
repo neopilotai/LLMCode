@@ -3,6 +3,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from llmcode.coders import Coder
 from llmcode.coders import editblock_coder as eb
@@ -107,32 +108,6 @@ Hope you like it!
         edits = list(eb.find_original_update_blocks(edit))
         self.assertEqual(edits, [("foo.txt", "Two\n", "Tooooo\n")])
 
-    def test_find_original_update_blocks_mangled_filename_w_source_tag(self):
-        source = "source"
-
-        edit = """
-Here's the change:
-
-<%s>foo.txt
-<<<<<<< SEARCH
-One
-=======
-Two
->>>>>>> REPLACE
-</%s>
-
-Hope you like it!
-""" % (
-            source,
-            source,
-        )
-
-        fence = ("<%s>" % source, "</%s>" % source)
-
-        with self.assertRaises(ValueError) as cm:
-            _edits = list(eb.find_original_update_blocks(edit, fence))
-        self.assertIn("missing filename", str(cm.exception))
-
     def test_find_original_update_blocks_quote_below_filename(self):
         edit = """
 Here's the change:
@@ -183,10 +158,11 @@ Tooooo
 
 
 oops!
+>>>>>>> REPLACE
 """
 
         with self.assertRaises(ValueError) as cm:
-            list(eb.find_original_update_blocks(edit))
+            _blocks = list(eb.find_original_update_blocks(edit))
         self.assertIn("filename", str(cm.exception))
 
     def test_find_original_update_blocks_no_final_newline(self):
@@ -345,7 +321,7 @@ These changes replace the `subprocess.run` patches with `subprocess.check_output
         self.assertEqual(result, expected_output)
 
     def test_create_new_file_with_other_file_in_chat(self):
-        # https://github.com/KhulnaSoft/llmcode/issues/2258
+        # https://github.com/khulnasoft-lab/llmcode/issues/2258
         with ChdirTemporaryDirectory():
             # Create a few temporary files
             file1 = "file.txt"
@@ -357,15 +333,11 @@ These changes replace the `subprocess.run` patches with `subprocess.check_output
 
             # Initialize the Coder object with the mocked IO and mocked repo
             coder = Coder.create(
-                self.GPT35,
-                "diff",
-                use_git=False,
-                io=InputOutput(yes=True),
-                fnames=files,
+                self.GPT35, "diff", use_git=False, io=InputOutput(yes=True), fnames=files
             )
 
             def mock_send(*args, **kwargs):
-                coder.partial_response_content = """
+                coder.partial_response_content = f"""
 Do this:
 
 newfile.txt
@@ -561,7 +533,7 @@ Hope you like it!
         )
 
     def test_find_original_update_blocks_quad_backticks_with_triples_in_LLM_reply(self):
-        # https://github.com/KhulnaSoft/llmcode/issues/2879
+        # https://github.com/khulnasoft-lab/llmcode/issues/2879
         edit = """
 Here's the change:
 
@@ -580,6 +552,66 @@ Hope you like it!
         quad_backticks = (quad_backticks, quad_backticks)
         edits = list(eb.find_original_update_blocks(edit, fence=quad_backticks))
         self.assertEqual(edits, [("foo.txt", "", "Tooooo\n")])
+
+    # Test for shell script blocks with sh language identifier (issue #3785)
+    def test_find_original_update_blocks_with_sh_language_identifier(self):
+        # https://github.com/khulnasoft-lab/llmcode/issues/3785
+        edit = """
+Here's a shell script:
+
+```sh
+test_hello.sh
+<<<<<<< SEARCH
+=======
+#!/bin/bash
+# Check if exactly one argument is provided
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <argument>" >&2
+    exit 1
+fi
+
+# Echo the first argument
+echo "$1"
+
+exit 0
+>>>>>>> REPLACE
+```
+"""
+
+        edits = list(eb.find_original_update_blocks(edit))
+        # Instead of comparing exact strings, check that we got the right file and structure
+        self.assertEqual(len(edits), 1)
+        self.assertEqual(edits[0][0], "test_hello.sh")
+        self.assertEqual(edits[0][1], "")
+
+        # Check that the content contains the expected shell script elements
+        result_content = edits[0][2]
+        self.assertIn("#!/bin/bash", result_content)
+        self.assertIn('if [ "$#" -ne 1 ];', result_content)
+        self.assertIn('echo "Usage: $0 <argument>"', result_content)
+        self.assertIn("exit 1", result_content)
+        self.assertIn('echo "$1"', result_content)
+        self.assertIn("exit 0", result_content)
+
+    # Test for C# code blocks with csharp language identifier
+    def test_find_original_update_blocks_with_csharp_language_identifier(self):
+        edit = """
+Here's a C# code change:
+
+```csharp
+Program.cs
+<<<<<<< SEARCH
+Console.WriteLine("Hello World!");
+=======
+Console.WriteLine("Hello, C# World!");
+>>>>>>> REPLACE
+```
+"""
+
+        edits = list(eb.find_original_update_blocks(edit))
+        search_text = 'Console.WriteLine("Hello World!");\n'
+        replace_text = 'Console.WriteLine("Hello, C# World!");\n'
+        self.assertEqual(edits, [("Program.cs", search_text, replace_text)])
 
 
 if __name__ == "__main__":

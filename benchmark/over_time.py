@@ -133,9 +133,7 @@ class BenchmarkPlotter:
     def set_labels_and_style(self, ax: plt.Axes):
         ax.set_xlabel("Model release date", fontsize=18, color="#555")
         ax.set_ylabel(
-            "Llmcode code editing benchmark,\npercent completed correctly",
-            fontsize=18,
-            color="#555",
+            "Llmcode code editing benchmark,\npercent completed correctly", fontsize=18, color="#555"
         )
         ax.set_title("LLM code editing skill by model release date", fontsize=20)
         ax.set_ylim(30, 90)
@@ -143,8 +141,8 @@ class BenchmarkPlotter:
         plt.tight_layout(pad=1.0)
 
     def save_and_display(self, fig: plt.Figure):
-        plt.savefig("docs/site/assets/models-over-time.png")
-        plt.savefig("docs/site/assets/models-over-time.svg")
+        plt.savefig("llmcode/website/assets/models-over-time.png")
+        plt.savefig("llmcode/website/assets/models-over-time.svg")
         imgcat(fig)
 
     def plot(self, yaml_file: str):
@@ -157,13 +155,13 @@ class BenchmarkPlotter:
 
 def main():
     plotter = BenchmarkPlotter()
-    models = plotter.load_data("docs/site/_data/edit_leaderboard.yml")
+    models = plotter.load_data("llmcode/website/_data/edit_leaderboard.yml")
 
     # Print release dates and model names
     for model in sorted(models, key=lambda x: x.release_date):
         print(f"{model.release_date}: {model.name}")
 
-    plotter.plot("docs/site/_data/edit_leaderboard.yml")
+    plotter.plot("llmcode/website/_data/edit_leaderboard.yml")
 
 
 if __name__ == "__main__":

@@ -34,11 +34,7 @@ from llmcode.models import ModelSettings
 from llmcode.onboarding import offer_openrouter_oauth, select_default_model
 from llmcode.repo import ANY_GIT_ERROR, GitRepo
 from llmcode.report import report_uncaught_exceptions
-from llmcode.versioncheck import (
-    check_version,
-    install_from_main_branch,
-    install_upgrade,
-)
+from llmcode.versioncheck import check_version, install_from_main_branch, install_upgrade
 from llmcode.watch import FileWatcher
 
 from .dump import dump  # noqa: F401
@@ -221,6 +217,8 @@ def check_streamlit_install(io):
 def write_streamlit_credentials():
     from streamlit.file_util import get_streamlit_file_path
 
+    # See https://github.com/khulnasoft-lab/llmcode/issues/772
+
     credential_path = Path(get_streamlit_file_path()) / "credentials.toml"
     if not os.path.exists(credential_path):
         empty_creds = '[general]\nemail = ""\n'
@@ -253,7 +251,7 @@ def launch_gui(args):
         "--server.runOnSave=false",
     ]
 
-    # https://github.com/Llmcode-AI/llmcode/issues/2193
+    # https://github.com/khulnasoft-lab/llmcode/issues/2193
     is_dev = "-dev" in str(__version__)
 
     if is_dev:
@@ -393,9 +391,7 @@ def register_litellm_models(git_root, model_metadata_fname, io, verbose=False):
     model_metadata_files = []
 
     # Add the resource file path
-    resource_metadata = importlib_resources.files("llmcode.resources").joinpath(
-        "model-metadata.json"
-    )
+    resource_metadata = importlib_resources.files("llmcode.resources").joinpath("model-metadata.json")
     model_metadata_files.append(str(resource_metadata))
 
     model_metadata_files += generate_search_path_list(
@@ -637,7 +633,12 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         )
         os.environ["OPENAI_ORGANIZATION"] = args.openai_organization_id
 
-    analytics = Analytics(logfile=args.analytics_log, permanently_disable=args.analytics_disable)
+    analytics = Analytics(
+        logfile=args.analytics_log,
+        permanently_disable=args.analytics_disable,
+        posthog_host=args.analytics_posthog_host,
+        posthog_project_api_key=args.analytics_posthog_project_api_key,
+    )
     if args.analytics is not False:
         if analytics.need_to_ask(args.analytics):
             io.tool_output(
