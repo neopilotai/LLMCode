@@ -145,7 +145,7 @@ class Commands:
             sorted(
                 (
                     coder.edit_format,
-                    coder.__doc__.strip().split("\n")[0] if coder.__doc__ else "No description",
+                    (coder.__doc__.strip().split("\n")[0] if coder.__doc__ else "No description"),
                 )
                 for coder in coders.__all__
                 if getattr(coder, "edit_format", None)
@@ -1003,7 +1003,10 @@ class Commands:
     def cmd_run(self, args, add_on_nonzero_exit=False):
         "Run a shell command and optionally add the output to the chat (alias: !)"
         exit_status, combined_output = run_cmd(
-            args, verbose=self.verbose, error_print=self.io.tool_error, cwd=self.coder.root
+            args,
+            verbose=self.verbose,
+            error_print=self.io.tool_error,
+            cwd=self.coder.root,
         )
 
         if combined_output is None:
@@ -1240,7 +1243,8 @@ class Commands:
                 return
             try:
                 self.voice = voice.Voice(
-                    audio_format=self.voice_format or "wav", device_name=self.voice_input_device
+                    audio_format=self.voice_format or "wav",
+                    device_name=self.voice_input_device,
                 )
             except voice.SoundDeviceError:
                 self.io.tool_error(
@@ -1283,7 +1287,8 @@ class Commands:
 
                 # Check if a file with the same name already exists in the chat
                 existing_file = next(
-                    (f for f in self.coder.abs_fnames if Path(f).name == abs_file_path.name), None
+                    (f for f in self.coder.abs_fnames if Path(f).name == abs_file_path.name),
+                    None,
                 )
                 if existing_file:
                     self.coder.abs_fnames.remove(existing_file)

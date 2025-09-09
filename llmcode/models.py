@@ -275,7 +275,9 @@ class ModelInfoManager:
             import re
 
             if re.search(
-                rf"The model\s*.*{re.escape(url_part)}.* is not available", html, re.IGNORECASE
+                rf"The model\s*.*{re.escape(url_part)}.* is not available",
+                html,
+                re.IGNORECASE,
             ):
                 print(f"\033[91mError: Model '{url_part}' is not available\033[0m")
                 return {}
@@ -310,7 +312,12 @@ model_info_manager = ModelInfoManager()
 
 class Model(ModelSettings):
     def __init__(
-        self, model, weak_model=None, editor_model=None, editor_edit_format=None, verbose=False
+        self,
+        model,
+        weak_model=None,
+        editor_model=None,
+        editor_edit_format=None,
+        verbose=False,
     ):
         # Map any alias to its canonical name
         model = MODEL_ALIASES.get(model, model)
@@ -822,7 +829,10 @@ class Model(ModelSettings):
                         del self.extra_params["extra_body"]["reasoning"]
             else:
                 if num_tokens > 0:
-                    self.extra_params["thinking"] = {"type": "enabled", "budget_tokens": num_tokens}
+                    self.extra_params["thinking"] = {
+                        "type": "enabled",
+                        "budget_tokens": num_tokens,
+                    }
                 else:
                     if "thinking" in self.extra_params:
                         del self.extra_params["thinking"]
@@ -970,7 +980,10 @@ class Model(ModelSettings):
         if functions is not None:
             function = functions[0]
             kwargs["tools"] = [dict(type="function", function=function)]
-            kwargs["tool_choice"] = {"type": "function", "function": {"name": function["name"]}}
+            kwargs["tool_choice"] = {
+                "type": "function",
+                "function": {"name": function["name"]},
+            }
         if self.extra_params:
             kwargs.update(self.extra_params)
         if self.is_ollama() and "num_ctx" not in kwargs:

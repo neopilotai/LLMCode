@@ -294,13 +294,19 @@ class TestRepo(unittest.TestCase):
             # commit a change with llmcode_edits=True and co-authored-by flag
             fname.write_text("new content")
             commit_result = git_repo.commit(
-                fnames=[str(fname)], llmcode_edits=True, coder=mock_coder, message="Llmcode edit"
+                fnames=[str(fname)],
+                llmcode_edits=True,
+                coder=mock_coder,
+                message="Llmcode edit",
             )
             self.assertIsNotNone(commit_result)
 
             # check the commit message and author/committer
             commit = raw_repo.head.commit
-            self.assertIn("Co-authored-by: llmcode (gpt-test) <llmcode@llm.khulnasoft.com>", commit.message)
+            self.assertIn(
+                "Co-authored-by: llmcode (gpt-test) <llmcode@llm.khulnasoft.com>",
+                commit.message,
+            )
             self.assertEqual(commit.message.splitlines()[0], "Llmcode edit")
             # With default (None), co-authored-by takes precedence
             self.assertEqual(
@@ -348,14 +354,18 @@ class TestRepo(unittest.TestCase):
             # commit a change with llmcode_edits=True and combo flags
             fname.write_text("new content combo")
             commit_result = git_repo.commit(
-                fnames=[str(fname)], llmcode_edits=True, coder=mock_coder, message="Llmcode combo edit"
+                fnames=[str(fname)],
+                llmcode_edits=True,
+                coder=mock_coder,
+                message="Llmcode combo edit",
             )
             self.assertIsNotNone(commit_result)
 
             # check the commit message and author/committer
             commit = raw_repo.head.commit
             self.assertIn(
-                "Co-authored-by: llmcode (gpt-test-combo) <llmcode@llm.khulnasoft.com>", commit.message
+                "Co-authored-by: llmcode (gpt-test-combo) <llmcode@llm.khulnasoft.com>",
+                commit.message,
             )
             self.assertEqual(commit.message.splitlines()[0], "Llmcode combo edit")
             # When co-authored-by is true BUT author/committer are explicit True,
@@ -453,7 +463,12 @@ class TestRepo(unittest.TestCase):
         repo.config_writer().set_value("user", "email", "testuser@example.com").release()
 
         # Create three empty files and add them to the git repository
-        filenames = ["README.md", "subdir/fänny.md", "systemüber/blick.md", 'file"with"quotes.txt']
+        filenames = [
+            "README.md",
+            "subdir/fänny.md",
+            "systemüber/blick.md",
+            'file"with"quotes.txt',
+        ]
         created_files = []
         for filename in filenames:
             file_path = tempdir / filename

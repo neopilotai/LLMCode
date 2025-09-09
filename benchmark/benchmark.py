@@ -15,12 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import List, Optional
 
-try:
-    import git
-except ModuleNotFoundError as e:
-    print(f"Error: {e}")
-    print("Please install GitPython with: pip install gitpython")
-    sys.exit(1)
+import git
 import importlib_resources
 import lox
 import pandas as pd
@@ -163,29 +158,10 @@ def resolve_dirname(dirname, use_single_prior, make_new):
     return dirname
 
 
-import click
-from typer import Context as TyperContext
-
-@app.command(context_settings={"help_option_names": ["-h", "--help"]})
-@typer.version_option(prog_name="llmcode-benchmark", message="%(prog)s v%(version)s")
-class AppContext:
-    """CLI context object to pass settings between commands"""
-    def __init__(self):
-        self.verbose = False
-        self.color = True
-
-@typer.pass_context
-def main(ctx: TyperContext,
-    dirnames: Optional[List[str]] = typer.Argument(
-        None, 
-        help="Benchmark directory names to analyze"
-    ),
-    graphs: bool = typer.Option(
-        False, 
-        "--graphs", 
-        help="Generate interactive graphs of results",
-        rich_help_panel="Visualization"
-    ),
+@app.command()
+def main(
+    dirnames: Optional[List[str]] = typer.Argument(None, help="Directory names"),
+    graphs: bool = typer.Option(False, "--graphs", help="Generate graphs"),
     model: str = typer.Option("gpt-3.5-turbo", "--model", "-m", help="Model name"),
     sleep: float = typer.Option(
         0, "--sleep", help="Sleep seconds between tests when single threaded"
@@ -213,17 +189,7 @@ def main(ctx: TyperContext,
     no_llmcode: bool = typer.Option(False, "--no-llmcode", help="Do not run llmcode"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
     stats_only: bool = typer.Option(
-        False, 
-        "--stats", 
-        "-s", 
-        help="[dim]Do not run tests, just collect stats on completed tests[/]",
-        rich_help_panel="Reporting"
-    ),
-    color: bool = typer.Option(
-        True,
-        "--color/--no-color",
-        help="Enable/disable colored output",
-        rich_help_panel="Output Formatting"
+        False, "--stats", "-s", help="Do not run tests, just collect stats on completed tests"
     ),
     stats_languages: str = typer.Option(
         None,
@@ -354,7 +320,9 @@ def main(ctx: TyperContext,
 
     test_dnames = sorted(str(d.relative_to(original_dname)) for d in exercise_dirs)
 
-    resource_metadata = importlib_resources.files("llmcode.resources").joinpath("model-metadata.json")
+    resource_metadata = importlib_resources.files("llmcode.resources").joinpath(
+        "model-metadata.json"
+    )
     model_metadata_files_loaded = models.register_litellm_models([resource_metadata])
     dump(model_metadata_files_loaded)
 
@@ -1088,34 +1056,6 @@ def cleanup_test_output(output, testdir):
     res = res.replace(str(testdir), str(testdir.name))
     return res
 
-
-@app.command()
-def stats(
-    dirnames: List[str] = typer.Argument(..., help="Directories to analyze"),
-    export: str = typer.Option(None, "--export", help="Export stats to JSON file"),
-    color: bool = typer.Option(True, "--color/--no-color", help="Colorize output")
-):
-    """Generate detailed statistics from benchmark results"""
-    from rich.console import Console
-    from rich.table import Table
-    from problem_stats import analyze_exercise_solutions
-    
-    console = Console(color_system="auto" if color else None)
-    results = analyze_exercise_solutions(dirnames)
-    
-    if export:
-        with open(export, 'w') as f:
-            json.dump(results, f)
-        console.print(f"\n[green]✓[/] Stats exported to {export}")
-    else:
-        table = Table(title="Benchmark Statistics", show_header=True, header_style="bold magenta")
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value", style="green")
-        
-        for k, v in results.items():
-            table.add_row(k.replace('_', ' ').title(), str(v))
-            
-        console.print(table)
 
 if __name__ == "__main__":
     app()

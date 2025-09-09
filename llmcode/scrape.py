@@ -201,7 +201,10 @@ class Scraper:
             ) as client:
                 response = client.get(url)
                 response.raise_for_status()
-                return response.text, response.headers.get("content-type", "").split(";")[0]
+                return (
+                    response.text,
+                    response.headers.get("content-type", "").split(";")[0],
+                )
         except httpx.HTTPError as http_err:
             self.print_error(f"HTTP error occurred: {http_err}")
         except Exception as err:

@@ -90,7 +90,13 @@ class ConfirmGroup:
 
 class AutoCompleter(Completer):
     def __init__(
-        self, root, rel_fnames, addable_rel_fnames, commands, encoding, abs_read_only_fnames=None
+        self,
+        root,
+        rel_fnames,
+        addable_rel_fnames,
+        commands,
+        encoding,
+        abs_read_only_fnames=None,
     ):
         self.addable_rel_fnames = addable_rel_fnames
         self.rel_fnames = rel_fnames
@@ -1063,7 +1069,8 @@ class InputOutput:
                 return f"terminal-notifier -title 'Llmcode' -message '{NOTIFICATION_MESSAGE}'"
             # Fall back to osascript
             return (
-                f'osascript -e \'display notification "{NOTIFICATION_MESSAGE}" with title "Llmcode"\''
+                f'osascript -e \'display notification "{NOTIFICATION_MESSAGE}" with title'
+                ' "Llmcode"\''
             )
         elif system == "Linux":
             # Check for common Linux notification tools

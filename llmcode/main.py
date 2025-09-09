@@ -34,7 +34,11 @@ from llmcode.models import ModelSettings
 from llmcode.onboarding import offer_openrouter_oauth, select_default_model
 from llmcode.repo import ANY_GIT_ERROR, GitRepo
 from llmcode.report import report_uncaught_exceptions
-from llmcode.versioncheck import check_version, install_from_main_branch, install_upgrade
+from llmcode.versioncheck import (
+    check_version,
+    install_from_main_branch,
+    install_upgrade,
+)
 from llmcode.watch import FileWatcher
 
 from .dump import dump  # noqa: F401
@@ -391,7 +395,9 @@ def register_litellm_models(git_root, model_metadata_fname, io, verbose=False):
     model_metadata_files = []
 
     # Add the resource file path
-    resource_metadata = importlib_resources.files("llmcode.resources").joinpath("model-metadata.json")
+    resource_metadata = importlib_resources.files("llmcode.resources").joinpath(
+        "model-metadata.json"
+    )
     model_metadata_files.append(str(resource_metadata))
 
     model_metadata_files += generate_search_path_list(

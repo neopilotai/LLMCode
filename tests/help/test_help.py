@@ -99,13 +99,15 @@ class TestHelp(unittest.TestCase):
         # Test relative Unix-style paths
         self.assertEqual(fname_to_url("website/docs/index.md"), "https://llm.khulnasoft.com/docs")
         self.assertEqual(
-            fname_to_url("website/docs/usage.md"), "https://llm.khulnasoft.com/docs/usage.html"
+            fname_to_url("website/docs/usage.md"),
+            "https://llm.khulnasoft.com/docs/usage.html",
         )
         self.assertEqual(fname_to_url("website/_includes/header.md"), "")
 
         # Test absolute Unix-style paths
         self.assertEqual(
-            fname_to_url("/home/user/project/website/docs/index.md"), "https://llm.khulnasoft.com/docs"
+            fname_to_url("/home/user/project/website/docs/index.md"),
+            "https://llm.khulnasoft.com/docs",
         )
         self.assertEqual(
             fname_to_url("/home/user/project/website/docs/usage.md"),
@@ -117,13 +119,15 @@ class TestHelp(unittest.TestCase):
         # Test relative Windows-style paths
         self.assertEqual(fname_to_url(r"website\docs\index.md"), "https://llm.khulnasoft.com/docs")
         self.assertEqual(
-            fname_to_url(r"website\docs\usage.md"), "https://llm.khulnasoft.com/docs/usage.html"
+            fname_to_url(r"website\docs\usage.md"),
+            "https://llm.khulnasoft.com/docs/usage.html",
         )
         self.assertEqual(fname_to_url(r"website\_includes\header.md"), "")
 
         # Test absolute Windows-style paths
         self.assertEqual(
-            fname_to_url(r"C:\Users\user\project\website\docs\index.md"), "https://llm.khulnasoft.com/docs"
+            fname_to_url(r"C:\Users\user\project\website\docs\index.md"),
+            "https://llm.khulnasoft.com/docs",
         )
         self.assertEqual(
             fname_to_url(r"C:\Users\user\project\website\docs\usage.md"),

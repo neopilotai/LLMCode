@@ -18,7 +18,8 @@ class TestInputOutput(unittest.TestCase):
         for ending in ["platform", "lf", "crlf"]:
             io = InputOutput(line_endings=ending)
             self.assertEqual(
-                io.newline, None if ending == "platform" else "\n" if ending == "lf" else "\r\n"
+                io.newline,
+                None if ending == "platform" else "\n" if ending == "lf" else "\r\n",
             )
 
         # Test invalid line endings
@@ -371,7 +372,10 @@ class TestInputOutputMultilineMode(unittest.TestCase):
         # Mock console.print to capture the output
         with patch.object(io.console, "print") as mock_print:
             # First call will raise UnicodeEncodeError
-            mock_print.side_effect = [UnicodeEncodeError("utf-8", "", 0, 1, "invalid"), None]
+            mock_print.side_effect = [
+                UnicodeEncodeError("utf-8", "", 0, 1, "invalid"),
+                None,
+            ]
 
             io._tool_message(invalid_unicode)
 
@@ -602,7 +606,8 @@ class TestInputOutputFormatFiles(unittest.TestCase):
         args_ed, _ = mock_columns.call_args_list[2]
         renderables_ed = args_ed[0]
         self.assertEqual(
-            renderables_ed, [Text("Editable:"), Text("edit1.txt"), Text("edit[markup].txt")]
+            renderables_ed,
+            [Text("Editable:"), Text("edit1.txt"), Text("edit[markup].txt")],
         )
 
 

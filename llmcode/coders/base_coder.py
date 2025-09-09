@@ -768,7 +768,8 @@ class Coder:
         if read_only_content:
             readonly_messages += [
                 dict(
-                    role="user", content=self.gpt_prompts.read_only_files_prefix + read_only_content
+                    role="user",
+                    content=self.gpt_prompts.read_only_files_prefix + read_only_content,
                 ),
                 dict(
                     role="assistant",
@@ -781,7 +782,10 @@ class Coder:
         if images_message is not None:
             readonly_messages += [
                 images_message,
-                dict(role="assistant", content="Ok, I will use these images as references."),
+                dict(
+                    role="assistant",
+                    content="Ok, I will use these images as references.",
+                ),
             ]
 
         return readonly_messages
@@ -843,7 +847,10 @@ class Coder:
             if mime_type.startswith("image/") and supports_images:
                 image_messages += [
                     {"type": "text", "text": f"Image file: {rel_fname}"},
-                    {"type": "image_url", "image_url": {"url": image_url, "detail": "high"}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image_url, "detail": "high"},
+                    },
                 ]
             elif mime_type == "application/pdf" and supports_pdfs:
                 image_messages += [
@@ -1285,7 +1292,8 @@ class Coder:
         if self.gpt_prompts.system_reminder:
             reminder_message = [
                 dict(
-                    role="system", content=self.fmt_system_prompt(self.gpt_prompts.system_reminder)
+                    role="system",
+                    content=self.fmt_system_prompt(self.gpt_prompts.system_reminder),
                 ),
             ]
         else:
@@ -1501,7 +1509,11 @@ class Coder:
                         messages[-1]["content"] = self.multi_response_content
                     else:
                         messages.append(
-                            dict(role="assistant", content=self.multi_response_content, prefix=True)
+                            dict(
+                                role="assistant",
+                                content=self.multi_response_content,
+                                prefix=True,
+                            )
                         )
                 except Exception as err:
                     self.mdstream = None
@@ -1578,7 +1590,10 @@ class Coder:
             else:
                 self.cur_messages += [dict(role="user", content="^C KeyboardInterrupt")]
             self.cur_messages += [
-                dict(role="assistant", content="I see that you interrupted my previous reply.")
+                dict(
+                    role="assistant",
+                    content="I see that you interrupted my previous reply.",
+                )
             ]
             return
 
@@ -1770,7 +1785,10 @@ class Coder:
         group = ConfirmGroup(new_mentions)
         for rel_fname in sorted(new_mentions):
             if self.io.confirm_ask(
-                "Add file to the chat?", subject=rel_fname, group=group, allow_never=True
+                "Add file to the chat?",
+                subject=rel_fname,
+                group=group,
+                allow_never=True,
             ):
                 self.add_rel_fname(rel_fname)
                 added_fnames.append(rel_fname)

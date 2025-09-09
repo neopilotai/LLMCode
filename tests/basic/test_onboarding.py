@@ -140,7 +140,9 @@ class TestOnboarding(unittest.TestCase):
 
     @patch("llmcode.onboarding.check_openrouter_tier", return_value=False)  # Paid
     @patch.dict(
-        os.environ, {"OPENROUTER_API_KEY": "or_key", "OPENAI_API_KEY": "oa_key"}, clear=True
+        os.environ,
+        {"OPENROUTER_API_KEY": "or_key", "OPENAI_API_KEY": "oa_key"},
+        clear=True,
     )
     def test_try_select_default_model_priority_openrouter(self, mock_check_tier):
         """Test OpenRouter key takes priority."""
@@ -148,7 +150,11 @@ class TestOnboarding(unittest.TestCase):
         mock_check_tier.assert_called_once_with("or_key")
 
     @patch("llmcode.onboarding.check_openrouter_tier")
-    @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "an_key", "OPENAI_API_KEY": "oa_key"}, clear=True)
+    @patch.dict(
+        os.environ,
+        {"ANTHROPIC_API_KEY": "an_key", "OPENAI_API_KEY": "oa_key"},
+        clear=True,
+    )
     def test_try_select_default_model_priority_anthropic(self, mock_check_tier):
         """Test Anthropic key takes priority over OpenAI."""
         self.assertEqual(try_to_select_default_model(), "sonnet")

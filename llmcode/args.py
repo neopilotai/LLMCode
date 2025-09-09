@@ -272,7 +272,9 @@ def get_parser(default_config_files, git_root):
         os.path.join(git_root, ".llmcode.input.history") if git_root else ".llmcode.input.history"
     )
     default_chat_history_file = (
-        os.path.join(git_root, ".llm.khulnasoft.com.history.md") if git_root else ".llm.khulnasoft.com.history.md"
+        os.path.join(git_root, ".llm.khulnasoft.com.history.md")
+        if git_root
+        else ".llm.khulnasoft.com.history.md"
     )
     group.add_argument(
         "--input-history-file",
@@ -417,7 +419,9 @@ def get_parser(default_config_files, git_root):
         "--add-gitignore-files",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Enable/disable the addition of files listed in .gitignore to Llmcode's editing scope.",
+        help=(
+            "Enable/disable the addition of files listed in .gitignore to Llmcode's editing scope."
+        ),
     )
     default_llmcodeignore_file = (
         os.path.join(git_root, ".llmcodeignore") if git_root else ".llmcodeignore"
@@ -453,8 +457,8 @@ def get_parser(default_config_files, git_root):
         action=argparse.BooleanOptionalAction,
         default=None,
         help=(
-            "Attribute llmcode code changes in the git author name (default: True). If explicitly set"
-            " to True, overrides --attribute-co-authored-by precedence."
+            "Attribute llmcode code changes in the git author name (default: True). If explicitly"
+            " set to True, overrides --attribute-co-authored-by precedence."
         ),
     )
     group.add_argument(
@@ -470,7 +474,10 @@ def get_parser(default_config_files, git_root):
         "--attribute-commit-message-author",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Prefix commit messages with 'llmcode: ' if llmcode authored the changes (default: False)",
+        help=(
+            "Prefix commit messages with 'llmcode: ' if llmcode authored the changes (default:"
+            " False)"
+        ),
     )
     group.add_argument(
         "--attribute-commit-message-committer",
@@ -925,7 +932,10 @@ def main():
             shell = sys.argv[2]
             if shell not in shtab.SUPPORTED_SHELLS:
                 print(f"Error: Unsupported shell '{shell}'.", file=sys.stderr)
-                print(f"Supported shells are: {', '.join(shtab.SUPPORTED_SHELLS)}", file=sys.stderr)
+                print(
+                    f"Supported shells are: {', '.join(shtab.SUPPORTED_SHELLS)}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             parser = get_parser([], None)
             parser.prog = "llmcode"  # Set the program name on the parser
@@ -933,7 +943,10 @@ def main():
         else:
             print("Error: Please specify a shell for completion.", file=sys.stderr)
             print(f"Usage: python {sys.argv[0]} completion <shell_name>", file=sys.stderr)
-            print(f"Supported shells are: {', '.join(shtab.SUPPORTED_SHELLS)}", file=sys.stderr)
+            print(
+                f"Supported shells are: {', '.join(shtab.SUPPORTED_SHELLS)}",
+                file=sys.stderr,
+            )
             sys.exit(1)
     else:
         # Default to YAML for any other unrecognized argument, or if 'yaml' was explicitly passed

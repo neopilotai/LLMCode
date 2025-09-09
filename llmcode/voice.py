@@ -12,7 +12,8 @@ from llmcode.llm import litellm
 from .dump import dump  # noqa: F401
 
 warnings.filterwarnings(
-    "ignore", message="Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work"
+    "ignore",
+    message="Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work",
 )
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
@@ -131,7 +132,10 @@ class Voice:
 
         try:
             with self.sd.InputStream(
-                samplerate=sample_rate, channels=1, callback=self.callback, device=self.device_id
+                samplerate=sample_rate,
+                channels=1,
+                callback=self.callback,
+                device=self.device_id,
             ):
                 prompt(self.get_prompt, refresh_interval=0.1)
         except self.sd.PortAudioError as err:

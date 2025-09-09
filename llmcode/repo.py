@@ -249,7 +249,9 @@ class GitRepo:
             model_name = "unknown-model"
             if coder and hasattr(coder, "main_model") and coder.main_model.name:
                 model_name = coder.main_model.name
-            commit_message_trailer = f"\n\nCo-authored-by: llmcode ({model_name}) <llmcode@llm.khulnasoft.com>"
+            commit_message_trailer = (
+                f"\n\nCo-authored-by: llmcode ({model_name}) <llmcode@llm.khulnasoft.com>"
+            )
 
         # Determine if author/committer names should be modified
         # Author modification applies only to llmcode edits.
@@ -299,7 +301,9 @@ class GitRepo:
                 if use_attribute_committer:
                     stack.enter_context(
                         set_git_env(
-                            "GIT_COMMITTER_NAME", committer_name, original_committer_name_env
+                            "GIT_COMMITTER_NAME",
+                            committer_name,
+                            original_committer_name_env,
                         )
                     )
                 if use_attribute_author:

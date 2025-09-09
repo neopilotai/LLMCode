@@ -95,7 +95,9 @@ class UnifiedDiffCoder(Coder):
             except SearchTextNotUnique:
                 errors.append(
                     not_unique_error.format(
-                        path=path, original=original, num_lines=len(original.splitlines())
+                        path=path,
+                        original=original,
+                        num_lines=len(original.splitlines()),
                     )
                 )
                 continue
@@ -103,7 +105,9 @@ class UnifiedDiffCoder(Coder):
             if not content:
                 errors.append(
                     no_match_error.format(
-                        path=path, original=original, num_lines=len(original.splitlines())
+                        path=path,
+                        original=original,
+                        num_lines=len(original.splitlines()),
                     )
                 )
                 continue

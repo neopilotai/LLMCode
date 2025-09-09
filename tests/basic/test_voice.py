@@ -97,7 +97,9 @@ def test_record_and_transcribe_device_error():
     with patch("llmcode.voice.sf", MagicMock()):
         voice = Voice()
         with patch.object(
-            voice, "raw_record_and_transcribe", side_effect=SoundDeviceError("Test error")
+            voice,
+            "raw_record_and_transcribe",
+            side_effect=SoundDeviceError("Test error"),
         ):
             result = voice.record_and_transcribe()
             assert result is None

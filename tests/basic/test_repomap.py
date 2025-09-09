@@ -89,7 +89,9 @@ class TestRepoMap(unittest.TestCase):
             # Get another repo map
             second_map = repo_map.get_repo_map([], other_files)
             self.assertEqual(
-                initial_map, second_map, "RepoMap should not change with refresh='files'"
+                initial_map,
+                second_map,
+                "RepoMap should not change with refresh='files'",
             )
 
             other_files = [
@@ -124,7 +126,10 @@ class TestRepoMap(unittest.TestCase):
             io = InputOutput()
             repo_map = RepoMap(main_model=self.GPT35, root=temp_dir, io=io, refresh="auto")
             chat_files = []
-            other_files = [os.path.join(temp_dir, "file1.py"), os.path.join(temp_dir, "file2.py")]
+            other_files = [
+                os.path.join(temp_dir, "file1.py"),
+                os.path.join(temp_dir, "file2.py"),
+            ]
 
             # Force the RepoMap computation to take more than 1 second
             original_get_ranked_tags = repo_map.get_ranked_tags
@@ -148,7 +153,9 @@ class TestRepoMap(unittest.TestCase):
             # Get another repo map without force_refresh
             second_map = repo_map.get_repo_map(chat_files, other_files)
             self.assertEqual(
-                initial_map, second_map, "RepoMap should not change without force_refresh"
+                initial_map,
+                second_map,
+                "RepoMap should not change without force_refresh",
             )
 
             # Get a new repo map with force_refresh
@@ -422,7 +429,9 @@ class TestRepoMapAllLanguages(unittest.TestCase):
 
             # Check if the result contains all the expected files and symbols
             self.assertIn(
-                filename, result, f"File for language {lang} not found in repo map: {result}"
+                filename,
+                result,
+                f"File for language {lang} not found in repo map: {result}",
             )
             self.assertIn(
                 symbol,

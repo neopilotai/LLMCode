@@ -50,7 +50,9 @@ class TestDeprecated(TestCase):
 
             with patch("llmcode.models.Model"), self.subTest(flag=flag):
                 main(
-                    [flag, "--no-git", "--exit", "--yes"], input=DummyInput(), output=DummyOutput()
+                    [flag, "--no-git", "--exit", "--yes"],
+                    input=DummyInput(),
+                    output=DummyOutput(),
                 )
 
                 # Look for the deprecation warning in all calls
@@ -80,7 +82,9 @@ class TestDeprecated(TestCase):
         with patch("llmcode.models.MODEL_ALIASES", {"gpt4": "gpt-4-0613"}):
             with patch("llmcode.models.Model"):
                 main(
-                    ["--4", "--no-git", "--exit", "--yes"], input=DummyInput(), output=DummyOutput()
+                    ["--4", "--no-git", "--exit", "--yes"],
+                    input=DummyInput(),
+                    output=DummyOutput(),
                 )
 
                 # Look for the deprecation warning in all calls

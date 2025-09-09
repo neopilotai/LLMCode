@@ -344,7 +344,12 @@ class RepoMap:
             )
 
     def get_ranked_tags(
-        self, chat_fnames, other_fnames, mentioned_fnames, mentioned_idents, progress=None
+        self,
+        chat_fnames,
+        other_fnames,
+        mentioned_fnames,
+        mentioned_idents,
+        progress=None,
     ):
         import networkx as nx
 
@@ -596,7 +601,11 @@ class RepoMap:
         # If not in cache or force_refresh is True, generate the map
         start_time = time.time()
         result = self.get_ranked_tags_map_uncached(
-            chat_fnames, other_fnames, max_map_tokens, mentioned_fnames, mentioned_idents
+            chat_fnames,
+            other_fnames,
+            max_map_tokens,
+            mentioned_fnames,
+            mentioned_idents,
         )
         end_time = time.time()
         self.map_processing_time = end_time - start_time

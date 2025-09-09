@@ -71,7 +71,9 @@ class TestReasoning(unittest.TestCase):
             reasoning_pos = output.find(reasoning_content)
             main_pos = output.find(main_content)
             self.assertLess(
-                reasoning_pos, main_pos, "Reasoning content should appear before main content"
+                reasoning_pos,
+                main_pos,
+                "Reasoning content should appear before main content",
             )
 
     def test_send_with_reasoning_content_stream(self):
@@ -91,7 +93,11 @@ class TestReasoning(unittest.TestCase):
         # Mock streaming response chunks
         class MockStreamingChunk:
             def __init__(
-                self, content=None, reasoning_content=None, reasoning=None, finish_reason=None
+                self,
+                content=None,
+                reasoning_content=None,
+                reasoning=None,
+                finish_reason=None,
             ):
                 self.choices = [MagicMock()]
                 self.choices[0].delta = MagicMock()
@@ -159,7 +165,9 @@ class TestReasoning(unittest.TestCase):
 
             # There should be at least two calls - one for streaming and one final
             self.assertGreaterEqual(
-                len(update_calls), 2, "Should have at least two calls to update (streaming + final)"
+                len(update_calls),
+                2,
+                "Should have at least two calls to update (streaming + final)",
             )
 
             # Check that at least one call has final=True (should be the last one)
@@ -179,7 +187,9 @@ class TestReasoning(unittest.TestCase):
             reasoning_pos = final_text.find("My step-by-step reasoning process")
             main_pos = final_text.find("Final answer after reasoning")
             self.assertLess(
-                reasoning_pos, main_pos, "Reasoning content should appear before main content"
+                reasoning_pos,
+                main_pos,
+                "Reasoning content should appear before main content",
             )
 
             # Verify that partial_response_content only contains the main content
@@ -249,7 +259,9 @@ class TestReasoning(unittest.TestCase):
             reasoning_pos = output.find(reasoning_content)
             main_pos = output.find(main_content)
             self.assertLess(
-                reasoning_pos, main_pos, "Reasoning content should appear before main content"
+                reasoning_pos,
+                main_pos,
+                "Reasoning content should appear before main content",
             )
 
             # Verify that partial_response_content only contains the main content
@@ -274,7 +286,11 @@ class TestReasoning(unittest.TestCase):
         # Mock streaming response chunks
         class MockStreamingChunk:
             def __init__(
-                self, content=None, reasoning_content=None, reasoning=None, finish_reason=None
+                self,
+                content=None,
+                reasoning_content=None,
+                reasoning=None,
+                finish_reason=None,
             ):
                 self.choices = [MagicMock()]
                 self.choices[0].delta = MagicMock()
@@ -341,7 +357,9 @@ class TestReasoning(unittest.TestCase):
 
             # There should be at least two calls - one for streaming and one final
             self.assertGreaterEqual(
-                len(update_calls), 2, "Should have at least two calls to update (streaming + final)"
+                len(update_calls),
+                2,
+                "Should have at least two calls to update (streaming + final)",
             )
 
             # Check that at least one call has final=True (should be the last one)
@@ -361,7 +379,9 @@ class TestReasoning(unittest.TestCase):
             reasoning_pos = final_text.find("My step-by-step reasoning process")
             main_pos = final_text.find("Final answer after reasoning")
             self.assertLess(
-                reasoning_pos, main_pos, "Reasoning content should appear before main content"
+                reasoning_pos,
+                main_pos,
+                "Reasoning content should appear before main content",
             )
 
     def test_remove_reasoning_content(self):
@@ -461,7 +481,9 @@ End"""
             reasoning_pos = output.find(reasoning_content)
             main_pos = output.find(main_content)
             self.assertLess(
-                reasoning_pos, main_pos, "Reasoning content should appear before main content"
+                reasoning_pos,
+                main_pos,
+                "Reasoning content should appear before main content",
             )
 
     def test_send_with_reasoning_stream(self):
@@ -482,7 +504,11 @@ End"""
         # Mock streaming response chunks
         class MockStreamingChunk:
             def __init__(
-                self, content=None, reasoning_content=None, reasoning=None, finish_reason=None
+                self,
+                content=None,
+                reasoning_content=None,
+                reasoning=None,
+                finish_reason=None,
             ):
                 self.choices = [MagicMock()]
                 self.choices[0].delta = MagicMock()
@@ -551,7 +577,9 @@ End"""
 
             # There should be at least two calls - one for streaming and one final
             self.assertGreaterEqual(
-                len(update_calls), 2, "Should have at least two calls to update (streaming + final)"
+                len(update_calls),
+                2,
+                "Should have at least two calls to update (streaming + final)",
             )
 
             # Check that at least one call has final=True (should be the last one)
@@ -571,7 +599,9 @@ End"""
             reasoning_pos = final_text.find("My step-by-step reasoning process")
             main_pos = final_text.find("Final answer after reasoning")
             self.assertLess(
-                reasoning_pos, main_pos, "Reasoning content should appear before main content"
+                reasoning_pos,
+                main_pos,
+                "Reasoning content should appear before main content",
             )
 
             # Verify that partial_response_content only contains the main content

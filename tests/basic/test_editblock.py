@@ -333,7 +333,11 @@ These changes replace the `subprocess.run` patches with `subprocess.check_output
 
             # Initialize the Coder object with the mocked IO and mocked repo
             coder = Coder.create(
-                self.GPT35, "diff", use_git=False, io=InputOutput(yes=True), fnames=files
+                self.GPT35,
+                "diff",
+                use_git=False,
+                io=InputOutput(yes=True),
+                fnames=files,
             )
 
             def mock_send(*args, **kwargs):

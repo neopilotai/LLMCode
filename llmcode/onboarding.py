@@ -366,7 +366,9 @@ def start_openrouter_oauth_flow(io, analytics):
             with open(key_file, "a", encoding="utf-8") as f:
                 f.write(f'OPENROUTER_API_KEY="{api_key}"\n')
 
-            io.tool_warning("Llmcode will load the OpenRouter key automatically in future sessions.")
+            io.tool_warning(
+                "Llmcode will load the OpenRouter key automatically in future sessions."
+            )
             io.tool_output()
 
             analytics.event("oauth_flow_success", provider="openrouter")
