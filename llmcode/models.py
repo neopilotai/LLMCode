@@ -10,18 +10,13 @@ import time
 from dataclasses import dataclass, fields
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import json5
 import yaml
 from PIL import Image
 
-from llmcode import __version__
-from llmcode.dump import dump  # noqa: F401
-from llmcode.llm import litellm
-from llmcode.openrouter import OpenRouterModelManager
-from llmcode.sendchat import ensure_alternating_roles, sanity_check_messages
-from llmcode.utils import check_pip_install_extra
+from llmcode.validation import validate_model_name
 
 RETRY_TIMEOUT = 60
 
@@ -319,8 +314,28 @@ class Model(ModelSettings):
         editor_edit_format=None,
         verbose=False,
     ):
+        """
+        Initialize a Model instance.
+
+        Args:
+            model: Model name identifier
+            weak_model: Optional weak model for certain operations
+            editor_model: Optional editor model for file editing
+            editor_edit_format: Optional edit format for editor model
+            verbose: Enable verbose output
+
+        Raises:
+            ValidationError: If model name is invalid
+            ModelError: If model configuration fails
+        """
+        # Validate and sanitize model name
+        try:
+            validated_model = validate_model_name(str(model))
+        except ValidationError as e:
+            raise ModelError(f"Invalid model name: {model}", model_name=model) from e
+
         # Map any alias to its canonical name
-        model = MODEL_ALIASES.get(model, model)
+        model = MODEL_ALIASES.get(validated_model, validated_model)
 
         self.name = model
         self.verbose = verbose
@@ -334,7 +349,10 @@ class Model(ModelSettings):
             (ms for ms in MODEL_SETTINGS if ms.name == "llmcode/extra_params"), None
         )
 
-        self.info = self.get_model_info(model)
+        try:
+            self.info = self.get_model_info(model)
+        except Exception as e:
+            raise ModelError(f"Failed to get model info for {model}", model_name=model) from e
 
         # Are all needed keys/params available?
         res = self.validate_environment()
@@ -357,7 +375,7 @@ class Model(ModelSettings):
         else:
             self.get_editor_model(editor_model, editor_edit_format)
 
-    def get_model_info(self, model):
+    def get_model_info(self, model: str) -> Dict[str, Any]:
         return model_info_manager.get_model_info(model)
 
     def _copy_fields(self, source):
@@ -571,7 +589,7 @@ class Model(ModelSettings):
     def __str__(self):
         return self.name
 
-    def get_weak_model(self, provided_weak_model_name):
+    def get_weak_model(self, provided_weak_model_name: Optional[str] = None) -> Optional['Model']:
         # If weak_model_name is provided, override the model settings
         if provided_weak_model_name:
             self.weak_model_name = provided_weak_model_name
@@ -618,16 +636,25 @@ class Model(ModelSettings):
     def tokenizer(self, text):
         return litellm.encode(model=self.name, text=text)
 
-    def token_count(self, messages):
+    def token_count(self, messages: Union[str, List[Dict[str, Any]]]) -> int:
+        """
+        Count tokens in messages or text.
+
+        Args:
+            messages: Either a string or list of message dictionaries
+
+        Returns:
+            Number of tokens, or 0 if counting fails
+        """
         if type(messages) is list:
             try:
                 return litellm.token_counter(model=self.name, messages=messages)
             except Exception as err:
-                print(f"Unable to count tokens: {err}")
+                print(f"Warning: Unable to count tokens: {err}")
                 return 0
 
         if not self.tokenizer:
-            return
+            return 0
 
         if type(messages) is str:
             msgs = messages
@@ -637,7 +664,7 @@ class Model(ModelSettings):
         try:
             return len(self.tokenizer(msgs))
         except Exception as err:
-            print(f"Unable to count tokens: {err}")
+            print(f"Warning: Unable to count tokens: {err}")
             return 0
 
     def token_count_for_image(self, fname):
@@ -671,14 +698,28 @@ class Model(ModelSettings):
         token_cost = num_tiles * 170 + 85
         return token_cost
 
-    def get_image_size(self, fname):
+    def get_image_size(self, fname: Union[str, Path]) -> Tuple[int, int]:
         """
         Retrieve the size of an image.
-        :param fname: The filename of the image.
-        :return: A tuple (width, height) representing the image size in pixels.
+
+        Args:
+            fname: The filename of the image
+
+        Returns:
+            A tuple (width, height) representing the image size in pixels
+
+        Raises:
+            FileOperationError: If the image cannot be opened or read
         """
-        with Image.open(fname) as img:
-            return img.size
+        try:
+            with Image.open(fname) as img:
+                return img.size
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to get image size for {fname}",
+                file_path=str(fname),
+                operation="get_image_size"
+            ) from e
 
     def fast_validate_environment(self):
         """Fast path for common models. Avoids forcing litellm import."""
@@ -711,15 +752,29 @@ class Model(ModelSettings):
         if var and os.environ.get(var):
             return dict(keys_in_environment=[var], missing_keys=[])
 
-    def validate_environment(self):
+    def validate_environment(self) -> Dict[str, Any]:
+        """
+        Validate that the model has the required environment variables.
+
+        Returns:
+            Dictionary with 'keys_in_environment' and 'missing_keys' lists
+
+        Raises:
+            ConfigurationError: If environment validation fails critically
+        """
         res = self.fast_validate_environment()
         if res:
             return res
 
         # https://github.com/BerriAI/litellm/issues/3190
-
-        model = self.name
-        res = litellm.validate_environment(model)
+        try:
+            model = self.name
+            res = litellm.validate_environment(model)
+        except Exception as e:
+            raise ConfigurationError(
+                f"Failed to validate environment for model {self.name}",
+                model_name=self.name
+            ) from e
 
         # If missing AWS credential keys but AWS_PROFILE is set, consider AWS credentials valid
         if res["missing_keys"] and any(

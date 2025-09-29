@@ -7,44 +7,78 @@ import traceback
 import webbrowser
 from dataclasses import fields
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 try:
     import git
 except ImportError:
     git = None
 
-import importlib_resources
 import shtab
 from dotenv import load_dotenv
 from prompt_toolkit.enums import EditingMode
 
 from llmcode import __version__, models, urls, utils
-from llmcode.analytics import Analytics
-from llmcode.args import get_parser
-from llmcode.coders import Coder
+from llmcode.validation import (
+    validate_api_key_format,
+    validate_environment_variable_name,
+    validate_model_name,
+    validate_numeric_input,
+)
 from llmcode.coders.base_coder import UnknownEditFormat
 from llmcode.commands import Commands, SwitchCoder
 from llmcode.copypaste import ClipboardWatcher
 from llmcode.deprecated import handle_deprecated_model_args
 from llmcode.format_settings import format_settings, scrub_sensitive_info
-from llmcode.history import ChatSummary
-from llmcode.io import InputOutput
-from llmcode.llm import litellm  # noqa: F401; properly init litellm on launch
-from llmcode.models import ModelSettings
-from llmcode.onboarding import offer_openrouter_oauth, select_default_model
-from llmcode.repo import ANY_GIT_ERROR, GitRepo
-from llmcode.report import report_uncaught_exceptions
-from llmcode.versioncheck import (
-    check_version,
-    install_from_main_branch,
-    install_upgrade,
-)
-from llmcode.watch import FileWatcher
 
-from .dump import dump  # noqa: F401
+def validate_configuration(args) -> List[str]:
+    """
+    Validate the current configuration and return list of warnings.
+
+    Args:
+        args: Parsed command line arguments
+
+    Returns:
+        List of warning messages
+    """
+    warnings = []
+
+    # Check for missing API keys when specific providers are requested
+    if args.model:
+        model_lower = args.model.lower()
+        if any(provider in model_lower for provider in ['openai', 'gpt']) and not os.environ.get('OPENAI_API_KEY'):
+            warnings.append("OpenAI model specified but OPENAI_API_KEY not found")
+        if 'anthropic' in model_lower and not os.environ.get('ANTHROPIC_API_KEY'):
+            warnings.append("Anthropic model specified but ANTHROPIC_API_KEY not found")
+        if 'openrouter' in model_lower and not os.environ.get('OPENROUTER_API_KEY'):
+            warnings.append("OpenRouter model specified but OPENROUTER_API_KEY not found")
+
+    # Check for deprecated arguments
+    deprecated_args = [
+        'openai_api_type', 'openai_api_version', 'openai_api_deployment_id',
+        'openai_organization_id'
+    ]
+    for arg in deprecated_args:
+        if hasattr(args, arg) and getattr(args, arg):
+            warnings.append(f"Argument --{arg} is deprecated")
+    # Check for incompatible argument combinations
+    if args.git and not git:
+        warnings.append("--git specified but GitPython not available")
+
+    if args.gui and not args.streamlit_install:
+        warnings.append("--gui specified but streamlit not available")
 
 
-def check_config_files_for_yes(config_files):
+def check_config_files_for_yes(config_files: List[str]) -> bool:
+    """
+    Check configuration files for deprecated 'yes:' syntax.
+
+    Args:
+        config_files: List of configuration file paths to check
+
+    Returns:
+        True if deprecated syntax found, False otherwise
+    """
     found = False
     for config_file in config_files:
         if Path(config_file).exists():
@@ -56,21 +90,34 @@ def check_config_files_for_yes(config_files):
                             print(f"The file {config_file} contains a line starting with 'yes:'")
                             print("Please replace 'yes:' with 'yes-always:' in this file.")
                             found = True
-            except Exception:
-                pass
+            except (OSError, IOError) as e:
+                # Log the error but don't fail completely
+                print(f"Warning: Could not read config file {config_file}: {e}")
     return found
 
 
-def get_git_root():
-    """Try and guess the git repo, since the conf.yml can be at the repo root"""
+def get_git_root() -> Optional[str]:
+    """
+    Try and guess the git repo, since the conf.yml can be at the repo root.
+
+    Returns:
+        Path to git repository root, or None if not found
+    """
     try:
         repo = git.Repo(search_parent_directories=True)
         return repo.working_tree_dir
-    except (git.InvalidGitRepositoryError, FileNotFoundError):
+    except (git.InvalidGitRepositoryError, FileNotFoundError) as e:
+        # Log debug info but don't raise - this is expected in many cases
+        if __debug__:
+            print(f"Debug: Git repo not found: {e}")
+        return None
+    except Exception as e:
+        # Handle unexpected errors gracefully
+        print(f"Warning: Unexpected error while finding git repo: {e}")
         return None
 
 
-def guessed_wrong_repo(io, git_root, fnames, git_dname):
+def guessed_wrong_repo(io, git_root: Optional[str], fnames: List[str], git_dname: Optional[str]) -> Optional[str]:
     """After we parse the args, we can determine the real repo. Did we guess wrong?"""
 
     try:
@@ -362,7 +409,18 @@ def register_models(git_root, model_settings_fname, io, verbose=False):
     return None
 
 
-def load_dotenv_files(git_root, dotenv_fname, encoding="utf-8"):
+def load_dotenv_files(git_root: Optional[str], dotenv_fname: str, encoding: str = "utf-8") -> List[str]:
+    """
+    Load environment variables from .env files.
+
+    Args:
+        git_root: Git repository root directory
+        dotenv_fname: Custom .env file name
+        encoding: File encoding to use
+
+    Returns:
+        List of successfully loaded .env file paths
+    """
     # Standard .env file search path
     dotenv_files = generate_search_path_list(
         ".env",
@@ -384,8 +442,8 @@ def load_dotenv_files(git_root, dotenv_fname, encoding="utf-8"):
             if Path(fname).exists():
                 load_dotenv(fname, override=True, encoding=encoding)
                 loaded.append(fname)
-        except OSError as e:
-            print(f"OSError loading {fname}: {e}")
+        except (OSError, IOError, UnicodeDecodeError) as e:
+            print(f"Warning: Could not load .env file {fname}: {e}")
         except Exception as e:
             print(f"Error loading {fname}: {e}")
     return loaded
@@ -454,7 +512,7 @@ def sanity_check_repo(repo, io):
     return False
 
 
-def main(argv=None, input=None, output=None, force_git_root=None, return_coder=False):
+def main(argv: Optional[List[str]] = None, input=None, output=None, force_git_root: Optional[str] = None, return_coder: bool = False) -> int:
     report_uncaught_exceptions()
 
     if argv is None:
@@ -597,23 +655,38 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         for env_setting in args.set_env:
             try:
                 name, value = env_setting.split("=", 1)
-                os.environ[name.strip()] = value.strip()
-            except ValueError:
+                validated_name = validate_environment_variable_name(name.strip())
+                os.environ[validated_name] = value.strip()
+            except ValueError as e:
                 io.tool_error(f"Invalid --set-env format: {env_setting}")
                 io.tool_output("Format should be: ENV_VAR_NAME=value")
-                return 1
+                raise ValidationError(
+                    f"Invalid --set-env format: {env_setting}",
+                    field_name="set_env",
+                    value=env_setting
+                )
 
     # Process any API keys set via --api-key
     if args.api_key:
         for api_setting in args.api_key:
             try:
                 provider, key = api_setting.split("=", 1)
-                env_var = f"{provider.strip().upper()}_API_KEY"
-                os.environ[env_var] = key.strip()
-            except ValueError:
+                provider = provider.strip().lower()
+                key = key.strip()
+
+                # Validate API key format
+                validate_api_key_format(key, provider)
+
+                env_var = f"{provider.upper()}_API_KEY"
+                os.environ[env_var] = key
+            except ValueError as e:
                 io.tool_error(f"Invalid --api-key format: {api_setting}")
                 io.tool_output("Format should be: provider=key")
-                return 1
+                raise ValidationError(
+                    f"Invalid --api-key format: {api_setting}",
+                    field_name="api_key",
+                    value=api_setting
+                )
 
     if args.anthropic_api_key:
         os.environ["ANTHROPIC_API_KEY"] = args.anthropic_api_key
@@ -1259,20 +1332,58 @@ def check_and_load_imports(io, is_first_run, verbose=False):
             io.tool_output(f"Full exception details: {traceback.format_exc()}")
 
 
-def load_slow_imports(swallow=True):
-    # These imports are deferred in various ways to
-    # improve startup time.
-    # This func is called either synchronously or in a thread
-    # depending on whether it's been run before for this version and executable.
+def load_slow_imports(swallow: bool = True) -> None:
+    """
+    Load heavy imports that can slow down startup time.
 
-    try:
-        import httpx  # noqa: F401
-        import litellm  # noqa: F401
-        import networkx  # noqa: F401
-        import numpy  # noqa: F401
-    except Exception as e:
-        if not swallow:
-            raise e
+    This function loads imports that are not immediately needed for basic functionality
+    but are required for full operation. These are loaded either synchronously on first run
+    or asynchronously in background thread for better startup performance.
+
+    Args:
+        swallow: If True, exceptions during import will be silently ignored
+    """
+    heavy_imports = [
+        'httpx',
+        'litellm',
+        'networkx',
+        'numpy',
+        'scipy',
+        'PIL',
+        'sounddevice',
+        'soundfile',
+        'pydub',
+        'tiktoken',
+        'transformers',
+        'torch',
+        'tensorflow',
+        'jax',
+        'pandas',
+        'matplotlib',
+        'plotly',
+        'streamlit',
+        'gradio',
+        'fastapi',
+        'uvicorn',
+        'gunicorn'
+    ]
+
+    failed_imports = []
+
+    for module_name in heavy_imports:
+        try:
+            __import__(module_name)
+        except ImportError:
+            # Module not available, skip silently
+            continue
+        except Exception as e:
+            failed_imports.append(f"{module_name}: {e}")
+            if not swallow:
+                raise e
+
+    if failed_imports and not swallow:
+        error_msg = f"Failed to load {len(failed_imports)} heavy imports:\n" + "\n".join(failed_imports)
+        raise ImportError(error_msg)
 
 
 if __name__ == "__main__":

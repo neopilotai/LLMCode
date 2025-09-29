@@ -2,16 +2,29 @@
 
 import os
 import random
+import re
 import sys
+import traceback
+from typing import Optional, Dict, Any
 
+import pyperclip
 import streamlit as st
 
 from llmcode import urls
 from llmcode.coders import Coder
 from llmcode.dump import dump  # noqa: F401
+from llmcode.exceptions import (
+    ConfigurationError,
+    FileOperationError,
+    ModelError,
+    NetworkError,
+    RepositoryError,
+    ValidationError,
+)
 from llmcode.io import InputOutput
 from llmcode.main import main as cli_main
 from llmcode.scrape import Scraper, has_playwright
+from llmcode.validation import validate_url
 
 
 class CaptureIO(InputOutput):
@@ -68,25 +81,42 @@ def get_state():
 
 @st.cache_resource
 def get_coder():
-    coder = cli_main(return_coder=True)
-    if not isinstance(coder, Coder):
-        raise ValueError(coder)
-    if not coder.repo:
-        raise ValueError("GUI can currently only be used inside a git repo")
+    """Initialize and return a coder instance with error handling."""
+    try:
+        coder = cli_main(return_coder=True)
+        if not isinstance(coder, Coder):
+            raise ConfigurationError(f"Failed to initialize coder: {coder}")
 
-    io = CaptureIO(
-        pretty=False,
-        yes=True,
-        dry_run=coder.io.dry_run,
-        encoding=coder.io.encoding,
-    )
-    # coder.io = io # this breaks the input_history
-    coder.commands.io = io
+        if not coder.repo:
+            raise RepositoryError("GUI can currently only be used inside a git repository")
 
-    for line in coder.get_announcements():
-        coder.io.tool_output(line)
+        io = CaptureIO(
+            pretty=False,
+            yes=True,
+            dry_run=coder.io.dry_run,
+            encoding=coder.io.encoding,
+        )
+        coder.commands.io = io
 
-    return coder
+        # Log announcements for debugging
+        for line in coder.get_announcements():
+            st.write(f"Announcement: {line}")
+
+        return coder
+
+    except RepositoryError:
+        st.error("❌ **Repository Error**: Please run this from inside a git repository.")
+        st.info("💡 **Tip**: Initialize git with `git init` or navigate to an existing git repository.")
+        st.stop()
+    except ConfigurationError as e:
+        st.error(f"❌ **Configuration Error**: {str(e)}")
+        st.info("💡 **Tip**: Check your API keys and configuration settings.")
+        st.stop()
+    except Exception as e:
+        st.error(f"❌ **Initialization Error**: Failed to start GUI: {str(e)}")
+        if st.checkbox("Show detailed error"):
+            st.code(traceback.format_exc())
+        st.stop()
 
 
 class GUI:
@@ -147,21 +177,49 @@ class GUI:
                     self.do_undo(commit_hash)
 
     def do_sidebar(self):
+        """Enhanced sidebar with better organization and visual hierarchy."""
         with st.sidebar:
-            st.title("Llmcode")
-            # self.cmds_tab, self.settings_tab = st.tabs(["Commands", "Settings"])
+            # Header with better styling
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.title("🤖 Llmcode")
+            with col2:
+                if self.prompt_pending():
+                    st.info("⏳ Processing...")
+                else:
+                    st.success("✅ Ready")
 
-            # self.do_recommended_actions()
-            self.do_add_to_chat()
-            self.do_recent_msgs()
-            self.do_clear_chat_history()
-            # st.container(height=150, border=False)
-            # st.write("### Experimental")
+            st.markdown("---")  # Visual separator
 
-            st.warning(
-                "This browser version of llmcode is experimental. Please share feedback in [GitHub"
-                " issues](https://github.com/khulnasoft-lab/llmcode/issues)."
-            )
+            # Main actions section
+            with st.expander("🔧 **Main Actions**", expanded=True):
+                self.do_add_to_chat()
+                self.do_recent_msgs()
+                self.do_clear_chat_history()
+
+            # Git operations section
+            if self.coder.repo:
+                with st.expander("📝 **Git Operations**", expanded=False):
+                    self.do_git_operations()
+
+            # Tools section
+            with st.expander("🛠️ **Tools**", expanded=False):
+                self.do_tools_section()
+
+            # Status and info
+            st.markdown("---")
+            with st.expander("ℹ️ **Status**", expanded=False):
+                self.do_status_info()
+
+            # Footer with helpful links
+            st.markdown("---")
+            st.markdown("""
+            <div style='text-align: center; color: #666; font-size: 0.8em;'>
+                <strong>Llmcode GUI</strong><br>
+                <a href='https://github.com/khulnasoft-lab/llmcode/issues' target='_blank'>🐛 Report Issues</a> •
+                <a href='https://github.com/khulnasoft-lab/llmcode' target='_blank'>📖 Documentation</a>
+            </div>
+            """, unsafe_allow_html=True)
 
     def do_settings_tab(self):
         pass
@@ -179,37 +237,285 @@ class GUI:
                 st.write("It's best to keep llmcode's internal files out of your git repo.")
                 self.button("Add `.llmcode*` to `.gitignore`", key=random.random(), help="?")
 
-    def do_add_to_chat(self):
-        # with st.expander("Add to the chat", expanded=True):
-        self.do_add_files()
-        self.do_add_web_page()
+    def do_git_operations(self):
+        """Enhanced git operations section."""
+        st.markdown("**Repository Management**")
 
-    def do_add_files(self):
+        # Show current branch and status
+        if self.coder.repo:
+            try:
+                current_branch = self.coder.repo.repo.active_branch.name
+                st.caption(f"📍 Branch: `{current_branch}`")
+
+                # Show pending changes
+                if self.coder.repo.is_dirty():
+                    st.info("📝 Has uncommitted changes")
+                else:
+                    st.success("✅ All changes committed")
+            except Exception as e:
+                st.warning(f"⚠️ Could not get git status: {str(e)}")
+
+        # Git action buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if self.button("📊 Show Diff", help="Show changes since last message"):
+                try:
+                    self.coder.commands.cmd_diff("")
+                except Exception as e:
+                    st.error(f"Failed to show diff: {str(e)}")
+
+        with col2:
+            if self.button("💾 Commit", help="Commit pending changes"):
+                try:
+                    self.coder.commands.cmd_commit("")
+                except Exception as e:
+                    st.error(f"Failed to commit: {str(e)}")
+
+        # Git command input
+        with st.expander("⚡ Quick Git Commands"):
+            git_cmd = st.text_input("Git command", placeholder="git status", key="git_cmd")
+            if git_cmd and self.button("Execute", key="git_exec"):
+                try:
+                    self.coder.commands.cmd_git(git_cmd)
+                except Exception as e:
+                    st.error(f"Git command failed: {str(e)}")
+
+    def do_tools_section(self):
+        """Enhanced tools section with better organization."""
+        st.markdown("**Development Tools**")
+
+        # Token and cost information
+        if self.button("💰 Show Costs", help="Display token usage and costs"):
+            try:
+                self.coder.commands.cmd_tokens("")
+            except Exception as e:
+                st.error(f"Failed to show costs: {str(e)}")
+
+        # Web scraping
+        with st.expander("🌐 Web Content"):
+            st.markdown("Add web pages to the chat for context")
+            if self.button("📄 Add Web Page", key="web_tool"):
+                # This will trigger the web input UI
+                pass
+
+        # Shell commands
+        with st.expander("💻 Terminal"):
+            st.markdown("Run shell commands and share results")
+            if self.button("⚡ Run Command", key="shell_tool"):
+                # This will trigger shell command UI
+                pass
+
+    def do_status_info(self):
+        """Display comprehensive status information."""
+        try:
+            # Model information
+            model_name = self.coder.main_model.name
+            st.markdown(f"**🤖 Model:** `{model_name}`")
+
+            # File count
+            inchat_files = len(self.coder.get_inchat_relative_files())
+            total_files = len(self.coder.get_all_relative_files())
+            st.markdown(f"**📁 Files:** {inchat_files} in chat / {total_files} total")
+
+            # Repository information
+            if self.coder.repo:
+                try:
+                    branch = self.coder.repo.repo.active_branch.name
+                    st.markdown(f"**📍 Branch:** `{branch}`")
+                except:
+                    st.markdown("**📍 Branch:** Unknown")
+
+            # Chat statistics
+            messages = len(self.state.messages)
+            st.markdown(f"**💬 Messages:** {messages}")
+
+            # Processing status
+            if self.prompt_pending():
+                st.markdown("**⏳ Status:** Processing...")
+            else:
+                st.markdown("**✅ Status:** Ready")
+
+        except Exception as e:
+            st.error(f"Failed to get status: {str(e)}")
+
+    def do_add_to_chat(self):
+        """Enhanced add to chat section."""
+        st.markdown("**Add Content to Chat**")
+
+        # File selection with better UX
+        available_files = self.coder.get_all_relative_files()
+        if not available_files:
+            st.info("📁 No files found. Add some files to your repository!")
+            return
+
+        # Show current files in chat
+        current_files = self.coder.get_inchat_relative_files()
+        if current_files:
+            files_text = ", ".join(f"`{f}`" for f in current_files[:3])
+            if len(current_files) > 3:
+                files_text += f" +{len(current_files) - 3} more"
+            st.caption(f"📋 Current files: {files_text}")
+
+        # File selection
         fnames = st.multiselect(
-            "Add files to the chat",
-            self.coder.get_all_relative_files(),
-            default=self.state.initial_inchat_files,
-            placeholder="Files to edit",
-            disabled=self.prompt_pending(),
-            help=(
-                "Only add the files that need to be *edited* for the task you are working"
-                " on. Llmcode will pull in other relevant code to provide context to the LLM."
-            ),
+            "Select files to include",
+            available_files,
+            default=current_files,
+            key="file_selection",
+            help="Files in chat are visible to the AI for editing and context"
         )
 
+        # Update file selection
         for fname in fnames:
-            if fname not in self.coder.get_inchat_relative_files():
-                self.coder.add_rel_fname(fname)
-                self.info(f"Added {fname} to the chat")
+            if fname not in current_files:
+                try:
+                    self.coder.add_rel_fname(fname)
+                    st.success(f"✅ Added `{fname}`")
+                except Exception as e:
+                    st.error(f"❌ Failed to add {fname}: {str(e)}")
 
-        for fname in self.coder.get_inchat_relative_files():
+        for fname in current_files:
             if fname not in fnames:
-                self.coder.drop_rel_fname(fname)
-                self.info(f"Removed {fname} from the chat")
+                try:
+                    self.coder.drop_rel_fname(fname)
+                    st.info(f"🗑️ Removed `{fname}`")
+                except Exception as e:
+                    st.error(f"❌ Failed to remove {fname}: {str(e)}")
 
-    def do_add_web_page(self):
-        with st.popover("Add a web page to the chat"):
-            self.do_web()
+    def do_web(self):
+        """Handle web page scraping with comprehensive error handling."""
+        st.markdown("Add the text content of a web page to the chat")
+
+        if not self.web_content_empty:
+            self.web_content_empty = st.empty()
+
+        if self.prompt_pending():
+            self.web_content_empty.empty()
+            self.state.web_content_num += 1
+
+        with self.web_content_empty:
+            self.web_content = st.text_input(
+                "URL",
+                placeholder="https://...",
+                key=f"web_content_{self.state.web_content_num}",
+                help="Enter a valid URL to scrape content from"
+            )
+
+        if not self.web_content:
+            return
+
+        url = self.web_content.strip()
+
+        # Validate URL format
+        try:
+            validate_url(url)
+        except ValidationError as e:
+            st.error(f"❌ **Invalid URL**: {str(e)}")
+            self.web_content = None
+            return
+
+        # Check if URL is already being processed
+        if hasattr(self.state, 'processing_url') and self.state.processing_url == url:
+            st.info("🔄 Processing URL...")
+            return
+
+        try:
+            # Initialize scraper if needed
+            if not hasattr(self.state, 'scraper') or not self.state.scraper:
+                with st.spinner("Initializing web scraper..."):
+                    self.state.scraper = Scraper(
+                        print_error=self._handle_error,
+                        playwright_available=has_playwright()
+                    )
+
+            # Mark URL as being processed
+            self.state.processing_url = url
+
+            with st.spinner(f"Scraping content from {url}..."):
+                content = self.state.scraper.scrape(url) or ""
+
+            if content.strip():
+                content = f"**Content from {url}**\n\n{content}"
+                self.prompt = content
+                self.prompt_as = "text"
+                st.success(f"✅ Successfully scraped content from {url}")
+                self.info(f"Added web content from {url} to chat")
+            else:
+                st.warning(f"⚠️ No content found at {url}")
+                self.web_content = None
+
+        except NetworkError as e:
+            st.error(f"❌ **Network Error**: Failed to access {url}")
+            st.info("💡 **Tip**: Check your internet connection and URL validity.")
+            if st.checkbox("Show network error details"):
+                st.code(str(e))
+        except Exception as e:
+            st.error(f"❌ **Scraping Error**: Failed to scrape {url}")
+            if st.checkbox("Show scraping error details"):
+                st.code(traceback.format_exc())
+        finally:
+            # Clear processing flag
+            if hasattr(self.state, 'processing_url'):
+                delattr(self.state, 'processing_url')
+            self.web_content = None
+
+    def _handle_error(self, message: str) -> None:
+        """Handle error messages from background processes."""
+        st.error(f"⚠️ {message}")
+
+    def do_add_files(self):
+        """Enhanced file selection with error handling."""
+        try:
+            available_files = self.coder.get_all_relative_files()
+            if not available_files:
+                st.info("📁 No files found in repository. Add some files to get started!")
+                return
+
+            fnames = st.multiselect(
+                "Add files to the chat",
+                available_files,
+                default=self.state.initial_inchat_files,
+                placeholder="Files to edit",
+                disabled=self.prompt_pending(),
+                help=(
+                    "Only add the files that need to be *edited* for the task you are working"
+                    " on. Llmcode will pull in other relevant code to provide context to the LLM."
+                ),
+            )
+
+            # Track changes to provide feedback
+            added_files = []
+            removed_files = []
+
+            for fname in fnames:
+                if fname not in self.coder.get_inchat_relative_files():
+                    try:
+                        self.coder.add_rel_fname(fname)
+                        added_files.append(fname)
+                    except Exception as e:
+                        st.error(f"❌ Failed to add {fname}: {str(e)}")
+
+            for fname in self.coder.get_inchat_relative_files():
+                if fname not in fnames:
+                    try:
+                        self.coder.drop_rel_fname(fname)
+                        removed_files.append(fname)
+                    except Exception as e:
+                        st.error(f"❌ Failed to remove {fname}: {str(e)}")
+
+            # Provide feedback
+            if added_files:
+                files_text = ", ".join(f"`{f}`" for f in added_files)
+                self.info(f"✅ Added {files_text} to the chat")
+
+            if removed_files:
+                files_text = ", ".join(f"`{f}`" for f in removed_files)
+                self.info(f"🗑️ Removed {files_text} from the chat")
+
+        except Exception as e:
+            st.error(f"❌ **File Operation Error**: {str(e)}")
+            if st.checkbox("Show file error details"):
+                st.code(traceback.format_exc())
 
     def do_add_image(self):
         with st.popover("Add image"):
@@ -299,31 +605,107 @@ class GUI:
                 self.prompt = self.old_prompt
 
     def do_messages_container(self):
+        """Enhanced messages container with better styling."""
+        # Main chat area with better styling
+        st.markdown("""
+        <style>
+        .main-chat-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .chat-message {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .user-message {
+            background: #e3f2fd;
+            margin-left: 50px;
+        }
+        .assistant-message {
+            background: #f5f5f5;
+            margin-right: 50px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
         self.messages = st.container()
 
-        # stuff a bunch of vertical whitespace at the top
-        # to get all the chat text to the bottom
-        # self.messages.container(height=300, border=False)
-
         with self.messages:
-            for msg in self.state.messages:
+            # Welcome message if no messages yet
+            if not self.state.messages or len(self.state.messages) <= 1:
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.markdown("""
+                    <div style='text-align: center; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; color: white;'>
+                        <h2>🤖 Welcome to Llmcode GUI!</h2>
+                        <p>Start a conversation by typing a message below or use the sidebar to add files and web content.</p>
+                        <div style='margin-top: 20px;'>
+                            <span style='background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; margin: 5px; display: inline-block;'>💬 Chat with AI</span>
+                            <span style='background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; margin: 5px; display: inline-block;'>📁 Edit Files</span>
+                            <span style='background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; margin: 5px; display: inline-block;'>🌐 Web Content</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # Display messages with enhanced styling
+            for i, msg in enumerate(self.state.messages):
                 role = msg["role"]
 
                 if role == "edit":
                     self.show_edit_info(msg)
                 elif role == "info":
-                    st.info(msg["content"])
+                    # Enhanced info messages
+                    if "✅" in msg["content"] or "Added" in msg["content"]:
+                        st.success(f"✅ {msg['content']}")
+                    elif "❌" in msg["content"] or "Failed" in msg["content"]:
+                        st.error(f"❌ {msg['content']}")
+                    elif "⚠️" in msg["content"] or "Warning" in msg["content"]:
+                        st.warning(f"⚠️ {msg['content']}")
+                    else:
+                        st.info(f"ℹ️ {msg['content']}")
                 elif role == "text":
                     text = msg["content"]
-                    line = text.splitlines()[0]
-                    with self.messages.expander(line):
-                        st.text(text)
+                    line = text.splitlines()[0][:60]  # Longer preview
+                    if len(text.splitlines()[0]) > 60:
+                        line += "..."
+                    with st.expander(f"📄 {line}", expanded=False):
+                        st.text_area("Content", text, height=200, key=f"text_msg_{i}", disabled=True)
                 elif role in ("user", "assistant"):
                     with st.chat_message(role):
-                        st.write(msg["content"])
-                        # self.cost()
+                        content = msg["content"]
+                        st.write(content)
+
+                        # Add helpful action buttons for assistant messages
+                        if role == "assistant" and len(self.state.messages) > 1:
+                            col1, col2, col3 = st.columns([1, 1, 2])
+                            with col1:
+                                if st.button("🔄 Retry", key=f"retry_{i}", help="Retry this message"):
+                                    # Copy the previous user message
+                                    prev_msg = None
+                                    for j in range(i-1, -1, -1):
+                                        if self.state.messages[j]["role"] == "user":
+                                            prev_msg = self.state.messages[j]["content"]
+                                            break
+                                    if prev_msg:
+                                        self.prompt = prev_msg
+                                        self.prompt_as = "user"
+                            with col2:
+                                if st.button("📋 Copy", key=f"copy_{i}", help="Copy to clipboard"):
+                                    try:
+                                        pyperclip.copy(content)
+                                        st.success("Copied to clipboard!")
+                                    except Exception:
+                                        st.error("Clipboard not available")
+                            with col3:
+                                st.caption(f"Message {i+1} of {len(self.state.messages)}")
                 else:
-                    st.dict(msg)
+                    # Fallback for unknown message types
+                    with st.expander(f"Unknown message type: {role}"):
+                        st.json(msg)
 
     def initialize_state(self):
         messages = [
@@ -358,49 +740,106 @@ class GUI:
         return st.button(args, **kwargs)
 
     def __init__(self):
-        self.coder = get_coder()
-        self.state = get_state()
+        """Initialize GUI with comprehensive error handling."""
+        try:
+            self.coder = get_coder()
+            self.state = get_state()
 
-        # Force the coder to cooperate, regardless of cmd line args
-        self.coder.yield_stream = True
-        self.coder.stream = True
-        self.coder.pretty = False
+            # Force the coder to cooperate, regardless of cmd line args
+            self.coder.yield_stream = True
+            self.coder.stream = True
+            self.coder.pretty = False
 
-        self.initialize_state()
+            self.initialize_state()
 
-        self.do_messages_container()
-        self.do_sidebar()
+            self.do_messages_container()
+            self.do_sidebar()
 
-        user_inp = st.chat_input("Say something")
-        if user_inp:
-            self.prompt = user_inp
+            # Handle user input with validation
+            user_inp = st.chat_input("Say something", key="main_chat_input")
 
-        if self.prompt_pending():
-            self.process_chat()
+            if user_inp:
+                # Validate input length
+                if len(user_inp.strip()) > 10000:
+                    st.error("❌ **Input too long**: Please keep messages under 10,000 characters.")
+                    st.rerun()
+                    return
 
-        if not self.prompt:
-            return
+                # Basic input sanitization
+                sanitized_input = user_inp.strip()
+                if sanitized_input:
+                    self.prompt = sanitized_input
+                else:
+                    st.warning("⚠️ Please enter a message before sending.")
+                    return
 
-        self.state.prompt = self.prompt
+            if self.prompt_pending():
+                self.process_chat()
 
-        if self.prompt_as == "user":
-            self.coder.io.add_to_input_history(self.prompt)
+            if not self.prompt:
+                return
 
-        self.state.input_history.append(self.prompt)
+            # Additional validation before processing
+            if not self._validate_prompt(self.prompt):
+                return
 
-        if self.prompt_as:
-            self.state.messages.append({"role": self.prompt_as, "content": self.prompt})
-        if self.prompt_as == "user":
-            with self.messages.chat_message("user"):
-                st.write(self.prompt)
-        elif self.prompt_as == "text":
-            line = self.prompt.splitlines()[0]
-            line += "??"
-            with self.messages.expander(line):
-                st.text(self.prompt)
+            self.state.prompt = self.prompt
 
-        # re-render the UI for the prompt_pending state
-        st.rerun()
+            if self.prompt_as == "user":
+                try:
+                    self.coder.io.add_to_input_history(self.prompt)
+                except Exception as e:
+                    st.warning(f"⚠️ Could not save to history: {str(e)}")
+
+            self.state.input_history.append(self.prompt)
+
+            if self.prompt_as:
+                self.state.messages.append({"role": self.prompt_as, "content": self.prompt})
+
+            if self.prompt_as == "user":
+                with self.messages.chat_message("user"):
+                    st.write(self.prompt)
+            elif self.prompt_as == "text":
+                line = self.prompt.splitlines()[0][:50]  # Truncate for display
+                if len(self.prompt.splitlines()[0]) > 50:
+                    line += "..."
+                with self.messages.expander(f"📄 {line}"):
+                    st.text(self.prompt)
+
+            # re-render the UI for the prompt_pending state
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"❌ **GUI Initialization Error**: {str(e)}")
+            if st.checkbox("Show initialization error details"):
+                st.code(traceback.format_exc())
+            st.error("Please check your configuration and try again.")
+
+    def _validate_prompt(self, prompt: str) -> bool:
+        """Validate user prompt before processing."""
+        if not prompt or not prompt.strip():
+            st.error("❌ **Empty Message**: Please enter a message.")
+            return False
+
+        if len(prompt) > 50000:  # Reasonable limit
+            st.error("❌ **Message Too Long**: Please keep messages under 50,000 characters.")
+            return False
+
+        # Check for potentially harmful content
+        dangerous_patterns = [
+            r'<script.*?>.*?</script>',
+            r'javascript:',
+            r'vbscript:',
+            r'onload\s*=',
+            r'onerror\s*=',
+        ]
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, prompt, re.IGNORECASE):
+                st.error("❌ **Invalid Content**: Message contains potentially unsafe content.")
+                return False
+
+        return True
 
     def prompt_pending(self):
         return self.state.prompt is not None
@@ -410,48 +849,84 @@ class GUI:
         st.caption(f"${cost:0.4f}")
 
     def process_chat(self):
+        """Process chat messages with comprehensive error handling."""
         prompt = self.state.prompt
         self.state.prompt = None
+
+        if not prompt or not prompt.strip():
+            return
 
         # This duplicates logic from within Coder
         self.num_reflections = 0
         self.max_reflections = 3
 
-        while prompt:
-            with self.messages.chat_message("assistant"):
-                res = st.write_stream(self.coder.run_stream(prompt))
-                self.state.messages.append({"role": "assistant", "content": res})
-                # self.cost()
+        try:
+            while prompt:
+                with self.messages.chat_message("assistant"):
+                    try:
+                        # Stream the response
+                        response_stream = self.coder.run_stream(prompt)
+                        if response_stream:
+                            response_text = st.write_stream(response_stream)
+                            self.state.messages.append({"role": "assistant", "content": response_text})
+                        else:
+                            st.error("❌ No response generated")
+                            return
 
-            prompt = None
-            if self.coder.reflected_message:
-                if self.num_reflections < self.max_reflections:
-                    self.num_reflections += 1
-                    self.info(self.coder.reflected_message)
-                    prompt = self.coder.reflected_message
+                    except ModelError as e:
+                        st.error(f"❌ **Model Error**: {str(e)}")
+                        st.info("💡 **Tip**: Check your model configuration and API keys.")
+                        return
+                    except NetworkError as e:
+                        st.error(f"❌ **Network Error**: {str(e)}")
+                        st.info("💡 **Tip**: Check your internet connection and API service status.")
+                        return
+                    except Exception as e:
+                        st.error(f"❌ **Response Error**: Failed to generate response")
+                        if st.checkbox("Show response error details"):
+                            st.code(traceback.format_exc())
+                        return
 
-        with self.messages:
-            edit = dict(
-                role="edit",
-                fnames=self.coder.llmcode_edited_files,
-            )
-            if self.state.last_llmcode_commit_hash != self.coder.last_llmcode_commit_hash:
-                edit["commit_hash"] = self.coder.last_llmcode_commit_hash
-                edit["commit_message"] = self.coder.last_llmcode_commit_message
-                commits = f"{self.coder.last_llmcode_commit_hash}~1"
-                diff = self.coder.repo.diff_commits(
-                    self.coder.pretty,
-                    commits,
-                    self.coder.last_llmcode_commit_hash,
+                prompt = None
+                if self.coder.reflected_message:
+                    if self.num_reflections < self.max_reflections:
+                        self.num_reflections += 1
+                        self.info(f"🤔 Reflecting on previous response... (attempt {self.num_reflections}/{self.max_reflections})")
+                        prompt = self.coder.reflected_message
+                    else:
+                        st.warning(f"⚠️ Maximum reflections ({self.max_reflections}) reached")
+
+            # Handle any edits that were made
+            with self.messages:
+                edit = dict(
+                    role="edit",
+                    fnames=self.coder.llmcode_edited_files,
                 )
-                edit["diff"] = diff
-                self.state.last_llmcode_commit_hash = self.coder.last_llmcode_commit_hash
 
-            self.state.messages.append(edit)
-            self.show_edit_info(edit)
+                if self.state.last_llmcode_commit_hash != self.coder.last_llmcode_commit_hash:
+                    edit["commit_hash"] = self.coder.last_llmcode_commit_hash
+                    edit["commit_message"] = self.coder.last_llmcode_commit_message
 
-        # re-render the UI for the non-prompt_pending state
-        st.rerun()
+                    try:
+                        commits = f"{self.coder.last_llmcode_commit_hash}~1"
+                        diff = self.coder.repo.diff_commits(
+                            self.coder.pretty,
+                            commits,
+                            self.coder.last_llmcode_commit_hash,
+                        )
+                        edit["diff"] = diff
+                        self.state.last_llmcode_commit_hash = self.coder.last_llmcode_commit_hash
+                    except Exception as e:
+                        st.warning(f"⚠️ Could not generate diff: {str(e)}")
+
+                if edit.get("fnames") or edit.get("commit_hash"):
+                    self.state.messages.append(edit)
+                    self.show_edit_info(edit)
+
+        except Exception as e:
+            st.error(f"❌ **Chat Processing Error**: {str(e)}")
+            if st.checkbox("Show chat processing error details"):
+                st.code(traceback.format_exc())
 
     def info(self, message, echo=True):
         info = dict(role="info", content=message)

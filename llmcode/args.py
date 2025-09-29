@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 import configargparse
 import shtab
@@ -19,7 +20,20 @@ from llmcode.deprecated import add_deprecated_model_args
 from .dump import dump  # noqa: F401
 
 
-def resolve_llmcodeignore_path(path_str, git_root=None):
+def resolve_llmcodeignore_path(path_str: str, git_root: Optional[str] = None) -> str:
+    """
+    Resolve the path to the .llmcodeignore file.
+
+    If the path is absolute, return it as-is. If it's relative and git_root is provided,
+    resolve it relative to the git root. Otherwise, return the path as-is.
+
+    Args:
+        path_str: The path string to resolve
+        git_root: Optional git repository root directory
+
+    Returns:
+        The resolved absolute path as a string
+    """
     path = Path(path_str)
     if path.is_absolute():
         return str(path)
@@ -28,11 +42,33 @@ def resolve_llmcodeignore_path(path_str, git_root=None):
     return str(path)
 
 
-def default_env_file(git_root):
+def default_env_file(git_root: Optional[str]) -> str:
+    """
+    Get the default .env file path.
+
+    Args:
+        git_root: Optional git repository root directory
+
+    Returns:
+        Path to the .env file (either in git root or current directory)
+    """
     return os.path.join(git_root, ".env") if git_root else ".env"
 
 
-def get_parser(default_config_files, git_root):
+def get_parser(default_config_files: List[str], git_root: Optional[str]) -> configargparse.ArgumentParser:
+    """
+    Create and configure the argument parser for llmcode.
+
+    This function sets up the complete argument parser with all the command-line options,
+    including model settings, API keys, configuration files, and various operational modes.
+
+    Args:
+        default_config_files: List of default configuration file paths to search
+        git_root: Optional git repository root directory for relative path resolution
+
+    Returns:
+        Configured ArgumentParser instance ready to parse command line arguments
+    """
     parser = configargparse.ArgumentParser(
         description="llmcode is AI pair programming in your terminal",
         add_config_file_help=True,
@@ -876,7 +912,13 @@ def get_parser(default_config_files, git_root):
     return parser
 
 
-def get_md_help():
+def get_md_help() -> str:
+    """
+    Generate markdown-formatted help text for the argument parser.
+
+    Returns:
+        Formatted markdown help string for documentation purposes
+    """
     os.environ["COLUMNS"] = "70"
     sys.argv = ["llmcode"]
     parser = get_parser([], None)
@@ -889,7 +931,13 @@ def get_md_help():
     return argparse.ArgumentParser.format_help(parser)
 
 
-def get_sample_yaml():
+def get_sample_yaml() -> str:
+    """
+    Generate YAML configuration sample from the argument parser.
+
+    Returns:
+        YAML-formatted configuration sample showing all available options
+    """
     os.environ["COLUMNS"] = "100"
     sys.argv = ["llmcode"]
     parser = get_parser([], None)
@@ -902,7 +950,13 @@ def get_sample_yaml():
     return argparse.ArgumentParser.format_help(parser)
 
 
-def get_sample_dotenv():
+def get_sample_dotenv() -> str:
+    """
+    Generate .env configuration sample from the argument parser.
+
+    Returns:
+        Dotenv-formatted configuration sample showing environment variables
+    """
     os.environ["COLUMNS"] = "120"
     sys.argv = ["llmcode"]
     parser = get_parser([], None)
@@ -915,7 +969,12 @@ def get_sample_dotenv():
     return argparse.ArgumentParser.format_help(parser)
 
 
-def main():
+def main() -> None:
+    """
+    Main entry point for the argument parser utilities.
+
+    Handles different output formats for documentation and shell completion.
+    """
     if len(sys.argv) > 1:
         command = sys.argv[1]
     else:

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 from llmcode.dump import dump  # noqa: F401
 
@@ -56,6 +57,200 @@ EXCEPTIONS = [
         "The API provider timed out without returning a response. They may be down or overloaded.",
     ),
 ]
+
+
+class LlmcodeError(Exception):
+    """
+    Base exception class for all llmcode-specific errors.
+
+    This serves as the root exception for all application-specific errors
+    that are not related to external API provider issues.
+    """
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initialize the LlmcodeError.
+
+        Args:
+            message: Human-readable error message
+            details: Optional dictionary with additional error context
+        """
+        super().__init__(message)
+        self.message = message
+        self.details = details or {}
+
+
+class ConfigurationError(LlmcodeError):
+    """
+    Raised when there's an issue with llmcode configuration.
+
+    This includes problems with config files, environment variables,
+    API keys, model settings, and other configuration-related issues.
+    """
+
+    def __init__(self, message: str, config_key: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize the ConfigurationError.
+
+        Args:
+            message: Human-readable error message
+            config_key: The configuration key that caused the issue
+            **kwargs: Additional context information
+        """
+        super().__init__(message, kwargs)
+        self.config_key = config_key
+        if config_key:
+            self.details['config_key'] = config_key
+
+
+class ModelError(LlmcodeError):
+    """
+    Raised when there's an issue with model configuration or usage.
+
+    This includes problems with model selection, model settings,
+    model compatibility, and model-specific operations.
+    """
+
+    def __init__(self, message: str, model_name: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize the ModelError.
+
+        Args:
+            message: Human-readable error message
+            model_name: The model that caused the issue
+            **kwargs: Additional context information
+        """
+        super().__init__(message, kwargs)
+        self.model_name = model_name
+        if model_name:
+            self.details['model_name'] = model_name
+
+
+class RepositoryError(LlmcodeError):
+    """
+    Raised when there's an issue with git repository operations.
+
+    This includes problems with repository initialization, file tracking,
+    git operations, and repository state management.
+    """
+
+    def __init__(self, message: str, repo_path: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize the RepositoryError.
+
+        Args:
+            message: Human-readable error message
+            repo_path: Path to the repository that caused the issue
+            **kwargs: Additional context information
+        """
+        super().__init__(message, kwargs)
+        self.repo_path = repo_path
+        if repo_path:
+            self.details['repo_path'] = repo_path
+
+
+class FileOperationError(LlmcodeError):
+    """
+    Raised when there's an issue with file operations.
+
+    This includes problems with reading, writing, creating, or
+    manipulating files in the project.
+    """
+
+    def __init__(self, message: str, file_path: Optional[str] = None, operation: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize the FileOperationError.
+
+        Args:
+            message: Human-readable error message
+            file_path: Path to the file that caused the issue
+            operation: The operation that was being performed
+            **kwargs: Additional context information
+        """
+        super().__init__(message, kwargs)
+        self.file_path = file_path
+        self.operation = operation
+        if file_path:
+            self.details['file_path'] = file_path
+        if operation:
+            self.details['operation'] = operation
+
+
+class ValidationError(LlmcodeError):
+    """
+    Raised when input validation fails.
+
+    This includes problems with argument validation, data validation,
+    and other forms of input checking.
+    """
+
+    def __init__(self, message: str, field_name: Optional[str] = None, value: Any = None, **kwargs: Any) -> None:
+        """
+        Initialize the ValidationError.
+
+        Args:
+            message: Human-readable error message
+            field_name: The field that failed validation
+            value: The invalid value that was provided
+            **kwargs: Additional context information
+        """
+        super().__init__(message, kwargs)
+        self.field_name = field_name
+        self.value = value
+        if field_name:
+            self.details['field_name'] = field_name
+        if value is not None:
+            self.details['value'] = str(value)
+
+
+class DependencyError(LlmcodeError):
+    """
+    Raised when there's an issue with required dependencies.
+
+    This includes problems with missing packages, incompatible versions,
+    and dependency installation failures.
+    """
+
+    def __init__(self, message: str, package_name: Optional[str] = None, required_version: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize the DependencyError.
+
+        Args:
+            message: Human-readable error message
+            package_name: The package that caused the issue
+            required_version: The minimum required version
+            **kwargs: Additional context information
+        """
+        super().__init__(message, kwargs)
+        self.package_name = package_name
+        self.required_version = required_version
+        if package_name:
+            self.details['package_name'] = package_name
+        if required_version:
+            self.details['required_version'] = required_version
+
+
+class NetworkError(LlmcodeError):
+    """
+    Raised when there's a network-related issue.
+
+    This includes problems with network connectivity, SSL/TLS issues,
+    and network timeout problems.
+    """
+
+    def __init__(self, message: str, url: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize the NetworkError.
+
+        Args:
+            message: Human-readable error message
+            url: The URL that was being accessed
+            **kwargs: Additional context information
+        """
+        super().__init__(message, kwargs)
+        self.url = url
+        if url:
+            self.details['url'] = url
 
 
 class LiteLLMExceptions:

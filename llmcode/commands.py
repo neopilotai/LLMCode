@@ -7,37 +7,65 @@ import tempfile
 from collections import OrderedDict
 from os.path import expanduser
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import pyperclip
 from PIL import Image, ImageGrab
 from prompt_toolkit.completion import Completion, PathCompleter
 from prompt_toolkit.document import Document
 
-from llmcode import models, prompts, voice
-from llmcode.editor import pipe_editor
-from llmcode.format_settings import format_settings
-from llmcode.help import Help, install_help_extra
-from llmcode.io import CommandCompletionException
-from llmcode.llm import litellm
-from llmcode.repo import ANY_GIT_ERROR
-from llmcode.run_cmd import run_cmd
-from llmcode.scrape import Scraper, install_playwright
-from llmcode.utils import is_image_file
+from llmcode.exceptions import (
+    ConfigurationError,
+    FileOperationError,
+    LlmcodeError,
+    ModelError,
+    NetworkError,
+    RepositoryError,
+    ValidationError,
+)
 
 from .dump import dump  # noqa: F401
 
 
 class SwitchCoder(Exception):
-    def __init__(self, placeholder=None, **kwargs):
+    """
+    Exception raised when switching to a different coder context.
+
+    This exception is used to signal that the current coder context should be
+    switched to a new one, typically when changing models or operational modes.
+    """
+
+    def __init__(self, placeholder: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        Initialize the SwitchCoder exception.
+
+        Args:
+            placeholder: Optional placeholder text for the switch context
+            **kwargs: Additional keyword arguments for the new context
+        """
         self.kwargs = kwargs
         self.placeholder = placeholder
 
 
 class Commands:
+    """
+    Command handler class for llmcode terminal interactions.
+
+    This class manages all the interactive commands that users can execute
+    within the llmcode terminal interface, including model switching, file
+    operations, linting, testing, and various utility functions.
+    """
+
     voice = None
     scraper = None
 
-    def clone(self):
+    def clone(self) -> 'Commands':
+        """
+        Create a copy of the current Commands instance.
+
+        Returns:
+            A new Commands instance with the same configuration
+        """
         return Commands(
             self.io,
             None,
@@ -54,16 +82,32 @@ class Commands:
         self,
         io,
         coder,
-        voice_language=None,
-        voice_input_device=None,
-        voice_format=None,
-        verify_ssl=True,
+        voice_language: Optional[str] = None,
+        voice_input_device: Optional[str] = None,
+        voice_format: Optional[str] = None,
+        verify_ssl: bool = True,
         args=None,
         parser=None,
-        verbose=False,
+        verbose: bool = False,
         editor=None,
-        original_read_only_fnames=None,
-    ):
+        original_read_only_fnames: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Initialize the Commands handler.
+
+        Args:
+            io: Input/output interface for user interaction
+            coder: The main coder instance
+            voice_language: Language code for voice input (ISO 639-1)
+            voice_input_device: Specific audio input device name
+            voice_format: Audio format for voice recording
+            verify_ssl: Whether to verify SSL certificates
+            args: Parsed command line arguments
+            parser: Argument parser instance
+            verbose: Enable verbose output
+            editor: Editor command for file editing
+            original_read_only_fnames: List of read-only filenames
+        """
         self.io = io
         self.coder = coder
         self.parser = parser
@@ -84,8 +128,13 @@ class Commands:
         # Store the original read-only filenames provided via args.read
         self.original_read_only_fnames = set(original_read_only_fnames or [])
 
-    def cmd_model(self, args):
-        "Switch the Main Model to a new LLM"
+    def cmd_model(self, args: str) -> None:
+        """
+        Switch the Main Model to a new LLM.
+
+        Args:
+            args: Model name or empty string to show announcements
+        """
 
         model_name = args.strip()
         if not model_name:
@@ -217,12 +266,20 @@ class Commands:
             self.io.tool_output("Please provide a partial model name to search for.")
 
     def cmd_web(self, args, return_content=False):
-        "Scrape a webpage, convert to markdown and send in a message"
+        """
+        Scrape a webpage, convert to markdown and send in a message.
 
+        Args:
+            args: URL to scrape
+            return_content: If True, return content instead of adding to chat
+
+        Raises:
+            ValidationError: If URL is invalid or missing
+            NetworkError: If scraping fails due to network issues
+        """
         url = args.strip()
         if not url:
-            self.io.tool_error("Please provide a URL to scrape.")
-            return
+            raise ValidationError("URL is required for web scraping", field_name="url")
 
         self.io.tool_output(f"Scraping {url}...")
         if not self.scraper:
@@ -240,17 +297,20 @@ class Commands:
                 verify_ssl=self.verify_ssl,
             )
 
-        content = self.scraper.scrape(url) or ""
-        content = f"Here is the content of {url}:\n\n" + content
-        if return_content:
-            return content
+        try:
+            content = self.scraper.scrape(url) or ""
+            content = f"Here is the content of {url}:\n\n" + content
+            if return_content:
+                return content
 
-        self.io.tool_output("... added to chat.")
+            self.io.tool_output("... added to chat.")
 
-        self.coder.cur_messages += [
-            dict(role="user", content=content),
-            dict(role="assistant", content="Ok."),
-        ]
+            self.coder.cur_messages += [
+                dict(role="user", content=content),
+                dict(role="assistant", content="Ok."),
+            ]
+        except Exception as e:
+            raise NetworkError(f"Failed to scrape URL {url}", url=url) from e
 
     def is_command(self, inp):
         return inp[0] in "/!"
@@ -797,11 +857,24 @@ class Commands:
         return res
 
     def cmd_add(self, args):
-        "Add files to the chat so llmcode can edit them or review them in detail"
+        """
+        Add files to the chat so llmcode can edit them or review them in detail.
 
+        Args:
+            args: File patterns to add (supports wildcards)
+
+        Raises:
+            FileOperationError: If file operations fail
+            RepositoryError: If git repository operations fail
+            ValidationError: If file patterns are invalid
+        """
         all_matched_files = set()
 
-        filenames = parse_quoted_filenames(args)
+        try:
+            filenames = parse_quoted_filenames(args)
+        except Exception as e:
+            raise ValidationError(f"Invalid filename format: {args}", field_name="args", value=args) from e
+
         for word in filenames:
             if Path(word).is_absolute():
                 fname = Path(word)
@@ -819,9 +892,13 @@ class Commands:
                 # an existing dir, escape any special chars so they won't be globs
                 word = re.sub(r"([\*\?\[\]])", r"[\1]", word)
 
-            matched_files = self.glob_filtered_to_repo(word)
-            if matched_files:
-                all_matched_files.update(matched_files)
+            try:
+                matched_files = self.glob_filtered_to_repo(word)
+                if matched_files:
+                    all_matched_files.update(matched_files)
+                    continue
+            except Exception as e:
+                self.io.tool_error(f"Error matching pattern {word}: {e}")
                 continue
 
             if "*" in str(fname) or "?" in str(fname):
@@ -841,24 +918,31 @@ class Commands:
                     fname.touch()
                     all_matched_files.add(str(fname))
                 except OSError as e:
-                    self.io.tool_error(f"Error creating file {fname}: {e}")
+                    raise FileOperationError(
+                        f"Error creating file {fname}",
+                        file_path=str(fname),
+                        operation="create"
+                    ) from e
 
         for matched_file in sorted(all_matched_files):
             abs_file_path = self.coder.abs_root_path(matched_file)
 
             if not abs_file_path.startswith(self.coder.root) and not is_image_file(matched_file):
-                self.io.tool_error(
-                    f"Can not add {abs_file_path}, which is not within {self.coder.root}"
+                raise FileOperationError(
+                    f"File {abs_file_path} is not within repository root {self.coder.root}",
+                    file_path=abs_file_path,
+                    operation="add"
                 )
-                continue
 
             if (
                 self.coder.repo
                 and self.coder.repo.git_ignored_file(matched_file)
                 and not self.coder.add_gitignore_files
             ):
-                self.io.tool_error(f"Can't add {matched_file} which is in gitignore")
-                continue
+                raise RepositoryError(
+                    f"Cannot add {matched_file} which is in gitignore",
+                    repo_path=self.coder.root
+                )
 
             if abs_file_path in self.coder.abs_fnames:
                 self.io.tool_error(f"{matched_file} is already in the chat as an editable file")
@@ -871,26 +955,39 @@ class Commands:
                         f"Moved {matched_file} from read-only to editable files in the chat"
                     )
                 else:
-                    self.io.tool_error(
-                        f"Cannot add {matched_file} as it's not part of the repository"
+                    raise RepositoryError(
+                        f"Cannot add {matched_file} as it's not part of the repository",
+                        repo_path=self.coder.root
                     )
             else:
                 if is_image_file(matched_file) and not self.coder.main_model.info.get(
                     "supports_vision"
                 ):
-                    self.io.tool_error(
+                    raise ModelError(
                         f"Cannot add image file {matched_file} as the"
-                        f" {self.coder.main_model.name} does not support images."
+                        f" {self.coder.main_model.name} does not support images.",
+                        model_name=self.coder.main_model.name
                     )
-                    continue
-                content = self.io.read_text(abs_file_path)
-                if content is None:
-                    self.io.tool_error(f"Unable to read {matched_file}")
-                else:
-                    self.coder.abs_fnames.add(abs_file_path)
-                    fname = self.coder.get_rel_fname(abs_file_path)
-                    self.io.tool_output(f"Added {fname} to the chat")
-                    self.coder.check_added_files()
+
+                try:
+                    content = self.io.read_text(abs_file_path)
+                    if content is None:
+                        raise FileOperationError(
+                            f"Unable to read {matched_file}",
+                            file_path=abs_file_path,
+                            operation="read"
+                        )
+                except Exception as e:
+                    raise FileOperationError(
+                        f"Failed to read file {matched_file}",
+                        file_path=abs_file_path,
+                        operation="read"
+                    ) from e
+
+                self.coder.abs_fnames.add(abs_file_path)
+                fname = self.coder.get_rel_fname(abs_file_path)
+                self.io.tool_output(f"Added {fname} to the chat")
+                self.coder.check_added_files()
 
     def completions_drop(self):
         files = self.coder.get_inchat_relative_files()
