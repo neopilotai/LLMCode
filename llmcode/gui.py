@@ -942,7 +942,8 @@ class GUI:
                     if self.num_reflections < self.max_reflections:
                         self.num_reflections += 1
                         self.info(
-                            f"🤔 Reflecting on previous response... (attempt {self.num_reflections}/{self.max_reflections})"
+                            "🤔 Reflecting on previous response... (attempt"
+                            f" {self.num_reflections}/{self.max_reflections})"
                         )
                         prompt = self.coder.reflected_message
                     else:

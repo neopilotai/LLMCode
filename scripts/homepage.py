@@ -544,9 +544,7 @@ def main():
             " variable)"
         ),
     )
-    parser.add_argument(
-        "--package", default="llmcode", help="Package name (default: llmcode)"
-    )
+    parser.add_argument("--package", default="llmcode", help="Package name (default: llmcode)")
     parser.add_argument(
         "--github-repo",
         default="paul-gauthier/llmcode",
