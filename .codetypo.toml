@@ -1,6 +1,0 @@
-[tool.codetypo]
-exclude = [
-    "llmcode/website/assets/asciinema/asciinema-player.min.js",
-    "tests/fixtures/chat-history.md",
-    "tests/fixtures/chat-history-search-replace-gold.txt"
-]
