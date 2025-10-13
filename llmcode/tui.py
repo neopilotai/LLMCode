@@ -1,7 +1,9 @@
-from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Tree, Input, Static, TextLog
-from textual.containers import Container, Horizontal
 import os
+
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal
+from textual.widgets import Footer, Header, Input, Static, TextLog, Tree
+
 
 class LlmcodeTUI(App):
     CSS_PATH = "tui.css"
@@ -29,6 +31,7 @@ class LlmcodeTUI(App):
         # Command palette / scrollback
         yield Input(placeholder="Type a command or message...")
         yield Footer()
+
 
 if __name__ == "__main__":
     LlmcodeTUI().run()
